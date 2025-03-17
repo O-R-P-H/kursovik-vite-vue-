@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const url = require('url');
 
 let mainWindow;
 
@@ -9,6 +10,7 @@ app.whenReady().then(() => {
         height: 600,
         webPreferences: {
             nodeIntegration: false,
+            contextIsolation: true,
         }
     });
 
@@ -18,10 +20,11 @@ app.whenReady().then(() => {
         mainWindow.webContents.openDevTools()
         mainWindow.loadURL('http://localhost:5173');
     } else {
-        const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-        console.log('Loading File:', indexPath);
-        mainWindow.webContents.openDevTools()
-        mainWindow.loadFile(indexPath);
+        mainWindow.loadURL(url.format({
+            pathname: path.join(__dirname, '../dist/index.html'),
+            protocol: 'file:',
+            slashes: true
+        }));
     }
 
     app.on('window-all-closed', () => {
