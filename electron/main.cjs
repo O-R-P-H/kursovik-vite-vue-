@@ -6,8 +6,9 @@ let mainWindow;
 
 app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 640,
+        height: 640,
+        autoHideMenuBar: true, // Добавьте эту строку
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -17,7 +18,6 @@ app.whenReady().then(() => {
     const isDev = !app.isPackaged;
 
     if (isDev) {
-        mainWindow.webContents.openDevTools()
         mainWindow.loadURL('http://localhost:5173');
     } else {
         mainWindow.loadURL(url.format({

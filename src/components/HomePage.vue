@@ -4,7 +4,6 @@
 
 <template>
   <div>
-    <div class="background"></div>
     <div class="main">
       <p class="z">An advertising company</p>
       <div class="buttons">
@@ -12,6 +11,7 @@
         <button>products</button>
         <button>price lists</button>
       </div>
+      <div class="background"></div>
     </div>
 
   </div>
@@ -22,7 +22,7 @@
 .background {
   background-image: url("../../public/img/fon.svg");
   width: 100vw;
-  height: max-content;
+  height: 76vh;
   position: absolute;
   z-index: -1000;
   bottom: 0;
@@ -30,7 +30,6 @@
 }
 .main {
   width: 100vw;
-  height: 100vh;
 }
 
 .z {
