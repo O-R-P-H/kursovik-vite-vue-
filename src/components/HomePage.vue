@@ -1,5 +1,19 @@
 <script>
+export default {
+  name:"Home Page",
+  methods:{
+    routerPushToEnterpices(){
+      this.$router.push("/Enterprises");
+    },
+    routerPushToPricelists(){
+      this.$router.push("/Pricelists");
+    },
+    routerPushToProducts(){
+      this.$router.push("/Products");
+    },
 
+  }
+}
 </script>
 
 <template>
@@ -7,9 +21,9 @@
     <div class="main">
       <p class="z">An advertising company</p>
       <div class="buttons">
-        <button>enterprises</button>
-        <button>products</button>
-        <button>price lists</button>
+        <button @click="routerPushToEnterpices">Enterprises</button>
+        <button @click="routerPushToProducts">products</button>
+        <button @click="routerPushToPricelists">Price lists</button>
       </div>
       <div class="background"></div>
     </div>
