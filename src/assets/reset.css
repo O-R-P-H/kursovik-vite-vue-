@@ -53,18 +53,14 @@ address {
 }
 
 /* Form */
-input, textarea, button, select {
+textarea, button, select {
     font-family: inherit;
     font-size: inherit;
     color: inherit;
     background-color: transparent;
 }
 
-input::-ms-clear {
-    display: none;
-}
-
-button, input[type="submit"] {
+button[type="submit"] {
     display: inline-block;
     box-shadow: none;
     background-color: transparent;
@@ -72,7 +68,6 @@ button, input[type="submit"] {
     cursor: pointer;
 }
 
-input:focus, input:active,
 button:focus, button:active {
     outline: none;
 }
