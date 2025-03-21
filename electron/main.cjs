@@ -6,7 +6,7 @@ let mainWindow;
 
 app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
-        width: 640,
+        width: 1080,
         height: 640,
         autoHideMenuBar: true, // Добавьте эту строку
         webPreferences: {
