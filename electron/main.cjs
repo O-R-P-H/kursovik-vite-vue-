@@ -8,7 +8,8 @@ app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
         width: 1080,
         height: 640,
-        autoHideMenuBar: true, // Добавьте эту строку
+        autoHideMenuBar: true,
+        icon: path.join(__dirname, '../public/favicon.ico'), // Добавьте эту строку
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
