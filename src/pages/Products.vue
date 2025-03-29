@@ -14,61 +14,67 @@ export default {
 
 <template>
   <div>
-    <div class="big_wrapper">
-      <H1 class="title">Products</H1>
-      <div class="search_box">
-        <input placeholder="Search" type="text" class="search">
-        <img class="search_button" src="../../public/img/lupa.svg">
-      </div>
-      <div class="titling">
-        <div class="titling_item">
-          <p>Name</p>
-          <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+    <div class="centring container">
+      <div class="big_wrapper">
+        <H1 class="title">Products</H1>
+        <div class="search_box">
+          <input placeholder="Search" type="text" class="search">
+          <img class="search_button" src="../../public/img/lupa.svg">
         </div>
-        <div class="titling_item">
-          <p>Count</p>
-          <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+        <div class="titling">
+          <div class="titling_item">
+            <p>Name</p>
+            <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+          </div>
+          <div class="titling_item">
+            <p>Count</p>
+            <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+          </div>
+          <div class="titling_item">
+            <p>Group</p>
+            <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+          </div>
+          <div class="titling_item">
+            <p>Number</p>
+            <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+          </div>
+          <div class="titling_item">
+            <p>Manufacturer</p>
+            <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+          </div>
+          <div class="titling_item">
+            <p>Price</p>
+            <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+          </div>
         </div>
-        <div class="titling_item">
-          <p>Group</p>
-          <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+        <div class="wrapper">
+          <ProductItem></ProductItem>
+          <ProductItem></ProductItem>
+          <ProductItem></ProductItem>
+          <ProductItem></ProductItem>
         </div>
-        <div class="titling_item">
-          <p>Number</p>
-          <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
+        <div class="button_wrapper">
+          <div class="btn_subwrap">
+            <button style="background-color: #33C760" class="buttons">add</button>
+            <button style="background-color: #E43131" class="buttons">delete</button>
+            <button style="background-color: #199BEC" class="buttons">edit</button>
+          </div>
+          <button style="background-color: black !important;" class="buttons" @click="routerPushtoHome">back
+          </button>
         </div>
-        <div class="titling_item">
-          <p>Manufacturer</p>
-          <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
-        </div>
-        <div class="titling_item">
-          <p>Price</p>
-          <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
-        </div>
-      </div>
-      <div class="wrapper">
-        <ProductItem></ProductItem>
-        <ProductItem></ProductItem>
-        <ProductItem></ProductItem>
-        <ProductItem></ProductItem>
-      </div>
-      <div class="button_wrapper">
-        <div class="btn_subwrap">
-          <button style="background-color: #33C760" class="buttons">add</button>
-          <button style="background-color: #E43131" class="buttons">delete</button>
-          <button style="background-color: #199BEC" class="buttons">edit</button>
-        </div>
-        <button style="background-color: black !important;" class="buttons" @click="routerPushtoHome">back
-        </button>
-      </div>
 
 
+      </div>
     </div>
 
   </div>
 </template>
 
 <style scoped>
+.centring{
+  display: flex;
+  justify-content: center;
+}
 .big_wrapper {
   flex-direction: column;
   display: flex;
