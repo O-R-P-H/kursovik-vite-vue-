@@ -36,15 +36,16 @@ jobs:
           sudo mkdir -p /usr/local/lib/docker/cli-plugins
           sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
           sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-          docker compose version
 
-      - name: Build Docker images
+      - name: Build and tag Docker image
         run: |
-          docker compose build --no-cache
+          docker build -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest .
+          docker tag tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$(date +%Y%m%d%H%M%S)
 
-      - name: Push docker images
+      - name: Push Docker images
         run: |
-          docker compose push
+          docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest
+          docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$(date +%Y%m%d%H%M%S)
 
       - name: Connect to server via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -57,5 +58,5 @@ jobs:
             echo '{"insecure-registries": ["tsukawa.ru"]}' | sudo tee /etc/docker/daemon.json
             sudo systemctl restart docker
             sleep 5
-            sudo docker compose pull
-            sudo docker compose up -d --no-deps backend
+            docker pull tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest
+            docker compose up -d --no-deps backend
