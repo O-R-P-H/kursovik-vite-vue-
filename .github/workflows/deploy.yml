@@ -3,61 +3,46 @@ name: Backend Deployment
 on:
   push:
     branches:
-      - backend  # Этот workflow будет запускаться при push в ветку backend
-  workflow_dispatch:  # Также поддерживает запуск вручную
+      - backend
+  workflow_dispatch:
 
 jobs:
   deployment:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      # 2. Добавляем сертификат Harbor в доверенные
-      - name: Add Harbor certificate to trusted certificates
-        run: |
-          echo "${{ secrets.HARBOR_CERTIFICATE }}" > harbor.crt
-          sudo cp harbor.crt /usr/local/share/ca-certificates/
-          sudo update-ca-certificatess
-
-      # 3. Логинимся в Harbor registry
       - name: Log in to Harbor registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v1
         with:
           registry: tsukawa.ru
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
-      # 4. Настроим Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      # 5. Устанавливаем Docker Compose
       - name: Install Docker Compose
         run: |
           sudo apt-get update
           sudo apt-get install -y docker-compose
 
-      # 6. Строим Docker образы
       - name: Build Docker images
         run: |
           docker-compose build
 
-      # 7. Пушим Docker образы
       - name: Push docker images
         run: |
           docker-compose push
 
-      # 8. Подключаемся к серверу через SSH и запускаем контейнер
       - name: Connect to server via SSH
-        uses: appleboy/ssh-action@v0.1.5
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd bot  # Переход в нужную директорию
-            sudo docker-compose pull
-            sudo docker-compose up -d --no-deps backend
+            cd bot
+            sudo docker compose pull
+            sudo docker compose up -d --no-deps backend
