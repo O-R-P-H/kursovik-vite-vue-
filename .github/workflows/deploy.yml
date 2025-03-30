@@ -37,20 +37,21 @@ jobs:
           sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
           sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-      - name: Build and tag Docker image
+      - name: Build and push Docker image
         run: |
-          # Сначала сохраняем timestamp в переменную
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          # Собираем образ с двумя тегами
+          # Генерируем уникальный тег
+          IMAGE_TAG=$(date +%Y%m%d%H%M%S)
+          
+          # Собираем и тегируем образ
           docker build -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest \
-                     -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$TIMESTAMP .
-
-      - name: Push Docker images
-        run: |
-          # Получаем тот же timestamp, что использовали при сборке
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+                     -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$IMAGE_TAG .
+          
+          # Пушим оба тега
           docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest
-          docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$TIMESTAMP
+          docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$IMAGE_TAG
+          
+          # Сохраняем тег для использования в следующем шаге
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Connect to server via SSH
         uses: appleboy/ssh-action@v1.0.3
