@@ -1,0 +1,15 @@
+version: '3.0'
+services:
+  main:
+    image: tsukawa.ru/kursseezer/backend
+    container_name: main
+    build:
+      context: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    command: npm run start
+    restart: always
