@@ -1,9 +1,12 @@
 name: Deploy to VPS via Docker
 
 on:
-  push:
-    branches:
-      - backend  # Пайплайн будет запускаться на ветке backend
+  # Убираем автоматический запуск при пуше в backend
+  # push:
+  #   branches:
+  #     - backend
+
+  # Ставим только ручной запуск
   workflow_dispatch:  # Ручной запуск через GitHub UI
     inputs:
       environment:
