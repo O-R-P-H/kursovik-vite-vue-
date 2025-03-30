@@ -39,13 +39,18 @@ jobs:
 
       - name: Build and tag Docker image
         run: |
-          docker build -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest .
-          docker tag tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$(date +%Y%m%d%H%M%S)
+          # Сначала сохраняем timestamp в переменную
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          # Собираем образ с двумя тегами
+          docker build -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest \
+                     -t tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$TIMESTAMP .
 
       - name: Push Docker images
         run: |
+          # Получаем тот же timestamp, что использовали при сборке
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
           docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest
-          docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$(date +%Y%m%d%H%M%S)
+          docker push tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:$TIMESTAMP
 
       - name: Connect to server via SSH
         uses: appleboy/ssh-action@v1.0.3
