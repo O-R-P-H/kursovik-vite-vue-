@@ -13,6 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Add Harbor CA certificate
+        run: |
+          echo "${{ secrets.HARBOR_CA_CERT }}" | sudo tee /usr/local/share/ca-certificates/harbor.crt
+          sudo update-ca-certificates
+
       - name: Log in to Harbor registry
         uses: docker/login-action@v1
         with:
@@ -26,15 +31,15 @@ jobs:
       - name: Install Docker Compose
         run: |
           sudo apt-get update
-          sudo apt-get install -y docker-compose
+          sudo apt-get install -y docker-compose-plugin
 
       - name: Build Docker images
         run: |
-          docker-compose build
+          docker compose build
 
       - name: Push docker images
         run: |
-          docker-compose push
+          docker compose push
 
       - name: Connect to server via SSH
         uses: appleboy/ssh-action@v1.0.3
