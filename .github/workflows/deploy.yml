@@ -60,9 +60,30 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd bot
-            echo '{"insecure-registries": ["tsukawa.ru"]}' | sudo tee /etc/docker/daemon.json
+            # Переходим в директорию проекта
+            cd /root/harbor || { echo "Failed to cd into harbor directory"; exit 1; }
+            
+            # Проверяем конфигурацию Docker
+            echo '{
+              "insecure-registries": ["tsukawa.ru"],
+              "registry-mirrors": [],
+              "debug": true,
+              "experimental": false
+            }' | sudo tee /etc/docker/daemon.json
+            
+            # Перезапускаем Docker
+            sudo systemctl daemon-reload
             sudo systemctl restart docker
             sleep 5
-            docker pull tsukawa.ru/${{ secrets.HARBOR_PROJECT }}/backend:latest
+            
+            # Проверяем доступность registry
+            echo "Testing registry access..."
+            curl -vk https://tsukawa.ru/v2/ || true
+            
+            # Обновляем и запускаем контейнеры
+            docker compose pull
             docker compose up -d --no-deps backend
+            
+            # Проверяем результат
+            docker ps -a
+            docker logs backend
