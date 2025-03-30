@@ -18,8 +18,9 @@ jobs:
       # 2. Добавляем сертификат Harbor в доверенные
       - name: Add Harbor certificate to trusted certificates
         run: |
-          echo "${{ secrets.HARBOR_CERTIFICATE }}" > /usr/local/share/ca-certificates/harbor.crt
-          sudo update-ca-certificates
+          echo "${{ secrets.HARBOR_CERTIFICATE }}" > harbor.crt
+          sudo cp harbor.crt /usr/local/share/ca-certificates/
+          sudo update-ca-certificatess
 
       # 3. Логинимся в Harbor registry
       - name: Log in to Harbor registry
