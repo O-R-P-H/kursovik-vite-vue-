@@ -2,8 +2,7 @@ name: Backend Deployment
 
 on:
   push:
-    branches:
-      - backend
+    branches: [backend]
   workflow_dispatch:
 
 jobs:
@@ -39,10 +38,33 @@ jobs:
             # Скачиваем актуальный docker-compose.yml
             curl -fsSL "https://raw.githubusercontent.com/O-R-P-H/kursovik-vite-vue/backend/docker-compose.yml" -o docker-compose.yml
             
-            # Логинимся в Harbor (если нужно)
+            # Логинимся в Harbor
             echo "${{ secrets.HARBOR_PASSWORD }}" | docker login harbor.tsukawa.ru -u ${{ secrets.HARBOR_USERNAME }} --password-stdin
             
-            # Останавливаем и обновляем контейнеры
-            docker compose down || true
-            docker compose pull
+            # Безопасное удаление ТОЛЬКО контейнера бэкенда
+            if docker ps -a --format '{{.Names}}' | grep -Eq '^main$'; then
+              echo "Останавливаем и удаляем существующий контейнер main..."
+              docker stop main || true
+              docker rm main || true
+            else
+              echo "Контейнер main не найден, пропускаем удаление"
+            fi
+            
+            # Удаляем ТОЛЬКО образ бэкенда (если существует)
+            if docker images --format '{{.Repository}}' | grep -q 'harbor.tsukawa.ru/backseezer/backend'; then
+              echo "Удаляем старый образ бэкенда..."
+              docker rmi harbor.tsukawa.ru/backseezer/backend:latest || true
+            fi
+            
+            # Получаем свежий образ
+            docker compose pull main
+            
+            # Запускаем новый контейнер
             docker compose up -d --no-deps main
+            
+            # Проверяем состояние
+            echo "Текущие контейнеры:"
+            docker ps -a --filter "name=main" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
+            
+            echo "Логи контейнера:"
+            docker compose logs --tail=20 main
