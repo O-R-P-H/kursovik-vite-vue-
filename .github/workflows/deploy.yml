@@ -43,6 +43,8 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd backend_seezer
+            mkdir -p ~/backend_seezer
+            cd ~/backend_seezer
+            curl -L https://raw.githubusercontent.com/ORPH/kursovik-vite-vue/backend/docker-compose.yml -o docker-compose.yml
             sudo docker compose pull
             sudo docker compose up -d --no-deps backend
