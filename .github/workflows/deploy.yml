@@ -13,6 +13,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: 'backend'  # Добавляем путь для checkout
 
       - name: Login to Harbor
         uses: docker/login-action@v3
@@ -23,25 +24,21 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          # Проверяем наличие ключевых файлов перед сборкой
+          cd backend
           ls -la
-          [ -f tsconfig.json ] || (echo "Error: tsconfig.json not found!" && exit 1)
-          [ -f package.json ] || (echo "Error: package.json not found!" && exit 1)
-
-          # Собираем образ с полной очисткой кэша
+          
+          # Проверяем наличие ключевых файлов
+          if [ ! -f tsconfig.json ]; then
+            echo "Error: tsconfig.json not found!"
+            exit 1
+          fi
+          
           docker build \
             --no-cache \
             -t harbor.tsukawa.ru/backseezer/backend:latest \
-            -t harbor.tsukawa.ru/backseezer/backend:${{ github.sha }} \
             .
 
-          # Проверяем содержимое образа
-          docker run --rm harbor.tsukawa.ru/backseezer/backend:latest ls -la /app
-          docker run --rm harbor.tsukawa.ru/backseezer/backend:latest ls -la /app/dist
-
-          # Пушим образ
           docker push harbor.tsukawa.ru/backseezer/backend:latest
-          docker push harbor.tsukawa.ru/backseezer/backend:${{ github.sha }}
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -51,43 +48,43 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             set -e
-            
-            # Создаем рабочую директорию
             mkdir -p ~/backend_seezer
             cd ~/backend_seezer
             
-            # Скачиваем актуальный docker-compose.yml
-            curl -fsSL "https://raw.githubusercontent.com/O-R-P-H/kursovik-vite-vue/backend/docker-compose.yml" -o docker-compose.yml
-            
-            # Логинимся в Harbor
+            # Используем локальный docker-compose.yml вместо скачивания
+            echo 'version: "3.8"
+            services:
+              main:
+                image: harbor.tsukawa.ru/backseezer/backend:latest
+                container_name: main
+                ports:
+                  - "3000:3000"
+                restart: unless-stopped
+                environment:
+                  - NODE_ENV=production' > docker-compose.yml
+
             echo "${{ secrets.HARBOR_PASSWORD }}" | docker login harbor.tsukawa.ru -u ${{ secrets.HARBOR_USERNAME }} --password-stdin
             
-            # Останавливаем и удаляем старый контейнер
             docker compose down -v || true
-            
-            # Удаляем старый образ
             docker rmi harbor.tsukawa.ru/backseezer/backend:latest || true
-            
-            # Получаем свежий образ
             docker pull harbor.tsukawa.ru/backseezer/backend:latest
             
-            # Проверяем содержимое образа
+            # Проверка образа
             docker create --name temp_check harbor.tsukawa.ru/backseezer/backend:latest
-            docker cp temp_check:/app/tsconfig.json ./tsconfig-check.json || echo "Warning: tsconfig.json check failed"
-            docker cp temp_check:/app/dist/main.js ./main-check.js || echo "Warning: main.js check failed"
+            docker cp temp_check:/app/tsconfig.json ./ && echo "tsconfig.json exists" || echo "tsconfig.json missing"
             docker rm temp_check
             
-            # Запускаем новый контейнер
             docker compose up -d --force-recreate
-            
-            # Даем время на запуск
             sleep 15
             
-            # Проверяем состояние
-            docker ps -a --filter "name=main" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
+            docker ps -a --filter "name=main"
+            docker compose logs --tail=20 main
             
-            # Проверяем логи
-            docker compose logs --tail=50 main
-            
-            # Проверяем здоровье приложения
-            curl -s http://localhost:3000/api/health || echo "Health check failed"
+            # Альтернативная проверка здоровья
+            if docker exec main curl -s http://localhost:3000; then
+              echo "Application is healthy"
+            else
+              echo "Health check failed"
+              docker compose logs main
+              exit 1
+            fi
