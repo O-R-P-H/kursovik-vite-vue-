@@ -1,12 +1,11 @@
 version: '3.8'
-
 services:
   main:
     image: harbor.tsukawa.ru/backseezer/backend:latest
     container_name: main
     ports:
       - "3000:3000"
-      - "3001:3001"
-    restart: always
+    restart: unless-stopped
     environment:
       - NODE_ENV=production
+    # Убраны все volumes, которые могли перезаписывать /app
