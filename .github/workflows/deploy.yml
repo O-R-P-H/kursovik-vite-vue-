@@ -11,9 +11,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          path: 'backend'  # Добавляем путь для checkout
 
       - name: Login to Harbor
         uses: docker/login-action@v3
@@ -22,23 +19,24 @@ jobs:
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
-      - name: Build and push Docker image
+      - name: Build and push
         run: |
-          cd backend
-          ls -la
-          
-          # Проверяем наличие ключевых файлов
-          if [ ! -f tsconfig.json ]; then
-            echo "Error: tsconfig.json not found!"
-            exit 1
-          fi
-          
-          docker build \
+          # Сборка с удалением промежуточных слоёв
+          docker buildx build \
+            --push \
             --no-cache \
-            -t harbor.tsukawa.ru/backseezer/backend:latest \
+            --tag harbor.tsukawa.ru/backseezer/backend:latest \
+            --tag harbor.tsukawa.ru/backseezer/backend:${{ github.sha }} \
             .
 
-          docker push harbor.tsukawa.ru/backseezer/backend:latest
+          # Очистка старых образов (кроме последних 3)
+          docker run --rm \
+            -e HARBOR_USERNAME=${{ secrets.HARBOR_USERNAME }} \
+            -e HARBOR_PASSWORD=${{ secrets.HARBOR_PASSWORD }} \
+            ghcr.io/mayth/go-remove-docker-image \
+            --registry=harbor.tsukawa.ru \
+            --repo=backseezer/backend \
+            --keep=3
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -47,12 +45,14 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            set -e
+            set -ex
+            
+            # Подготовка директории
             mkdir -p ~/backend_seezer
             cd ~/backend_seezer
             
-            # Используем локальный docker-compose.yml вместо скачивания
-            echo 'version: "3.8"
+            # Обновлённый docker-compose.yml без версии
+            cat > docker-compose.yml <<'EOL'
             services:
               main:
                 image: harbor.tsukawa.ru/backseezer/backend:latest
@@ -61,30 +61,27 @@ jobs:
                   - "3000:3000"
                 restart: unless-stopped
                 environment:
-                  - NODE_ENV=production' > docker-compose.yml
+                  - NODE_ENV=production
+                healthcheck:
+                  test: ["CMD", "node", "-e", "require('http').request('http://localhost:3000', res => process.exit(res.statusCode === 200 ? 0 : 1)).end()"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+            EOL
 
+            # Авторизация и деплой
             echo "${{ secrets.HARBOR_PASSWORD }}" | docker login harbor.tsukawa.ru -u ${{ secrets.HARBOR_USERNAME }} --password-stdin
             
-            docker compose down -v || true
-            docker rmi harbor.tsukawa.ru/backseezer/backend:latest || true
+            docker compose down -v --remove-orphans || true
             docker pull harbor.tsukawa.ru/backseezer/backend:latest
-            
-            # Проверка образа
-            docker create --name temp_check harbor.tsukawa.ru/backseezer/backend:latest
-            docker cp temp_check:/app/tsconfig.json ./ && echo "tsconfig.json exists" || echo "tsconfig.json missing"
-            docker rm temp_check
-            
             docker compose up -d --force-recreate
-            sleep 15
             
-            docker ps -a --filter "name=main"
-            docker compose logs --tail=20 main
-            
-            # Альтернативная проверка здоровья
-            if docker exec main curl -s http://localhost:3000; then
-              echo "Application is healthy"
-            else
-              echo "Health check failed"
-              docker compose logs main
+            # Проверка здоровья через встроенный healthcheck
+            timeout 60s bash -c 'until docker compose ps --services | grep -q "healthy"; do sleep 5; done' || {
+              docker compose logs
               exit 1
-            fi
+            }
+            
+            # Финальная проверка
+            docker compose ps
+            echo "Deployment successful!"
