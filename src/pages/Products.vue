@@ -2,104 +2,87 @@
 import router from "@/router/router.js";
 import ProductItem from "@/Components/products/ProductItem.vue";
 import {ProductApi} from "@/api/productApi/index.js";
+import DeleteModal from "@/Components/products/DeleteModal.vue";
 
 export default {
-  components: {ProductItem},
+  components: {DeleteModal, ProductItem},
   data() {
     return {
+      deleteModalIsOpend: false,
+      addModalIsOpend: false,
+      editModalIsOpend: false,
       products: [],
-      searchQuery: '', // Добавим состояние для поиска
-      selectedProducts: new Set() // Для хранения выбранных продуктов
-    }
-  },
-  async created() {
-    try {
-      const data = await ProductApi.getAll();
-      this.products = data;
-      console.log('Products loaded:', data);
-    } catch (error) {
-      console.error('Error loading products:', error);
-      // Можно добавить уведомление об ошибке
+      searchQuery: '',
+      selectedProducts: new Set()
     }
   },
   computed: {
     filteredProducts() {
-      // Фильтрация продуктов по поисковому запросу
       return this.products.filter(product =>
           product.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           product.group.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           product.number.includes(this.searchQuery)
       );
+    },
+    productsToDelete() {
+      return this.products.filter(product =>
+          this.selectedProducts.has(product.id))
     }
   },
+  async created() {
+    await this.loadProducts();
+  },
   methods: {
+    async loadProducts() {
+      try {
+        const data = await ProductApi.getAll();
+        this.products = data;
+      } catch (error) {
+        console.error('Error loading products:', error);
+      }
+    },
     routerPushtoHome() {
       router.push({path: "/"});
     },
     handleAddProduct() {
-      // Логика добавления нового продукта
       router.push({path: "/products/new"});
     },
-    async deleteSelectedProducts() {
+    openDeleteModal() {
       if (this.selectedProducts.size === 0) {
-        alert('Пожалуйста, выберите хотя бы один продукт для удаления')
-        return
-      }
-
-      const idsToDelete = Array.from(this.selectedProducts)
-
-      try {
-        if (confirm(`Вы уверены, что хотите удалить ${idsToDelete.length} продуктов?`)) {
-          await ProductApi.deleteMultiple(idsToDelete)
-
-          // Удаляем продукты из локального состояния
-          this.products = this.products.filter(
-              product => !idsToDelete.includes(product.id)
-          )
-
-          // Очищаем выбор
-          this.selectedProducts.clear()
-
-          // Можно добавить уведомление об успехе
-          alert('Продукты успешно удалены!')
-        }
-      } catch (error) {
-        console.error('Ошибка при удалении:', error)
-        alert('Произошла ошибка при удалении продуктов')
-      }
-    },
-    handleDeleteProducts() {
-      // Логика удаления выбранных продуктов
-      if (this.selectedProducts.size === 0) {
-        alert('Please select products to delete');
+        alert('Пожалуйста, выберите хотя бы один продукт для удаления');
         return;
       }
-
-      if (confirm('Are you sure you want to delete selected products?')) {
-        // Вызов API для удаления
+      this.deleteModalIsOpend = true;
+    },
+    closeDeleteModal() {
+      this.deleteModalIsOpend = false;
+    },
+    async confirmDelete() {
+      try {
         const idsToDelete = Array.from(this.selectedProducts);
-        ProductApi.deleteMultiple(idsToDelete)
-            .then(() => {
-              this.products = this.products.filter(p => !idsToDelete.includes(p.id));
-              this.selectedProducts.clear();
-            })
-            .catch(error => {
-              console.error('Error deleting products:', error);
-            });
+        await ProductApi.deleteMultiple(idsToDelete);
+
+        this.products = this.products.filter(
+            product => !idsToDelete.includes(product.id)
+        );
+
+        this.selectedProducts.clear();
+        this.closeDeleteModal();
+        alert('Продукты успешно удалены!');
+      } catch (error) {
+        console.error('Ошибка при удалении:', error);
+        alert('Произошла ошибка при удалении продуктов');
       }
     },
     handleEditProduct() {
-      // Логика редактирования (предполагаем редактирование одного продукта)
       if (this.selectedProducts.size !== 1) {
         alert('Please select exactly one product to edit');
         return;
       }
-
       const productId = Array.from(this.selectedProducts)[0];
       router.push({path: `/products/edit/${productId}`});
     },
     toggleProductSelection(productId) {
-      // Переключение выбора продукта
       if (this.selectedProducts.has(productId)) {
         this.selectedProducts.delete(productId);
       } else {
@@ -110,8 +93,16 @@ export default {
 }
 </script>
 
+
+
 <template>
   <div>
+    <DeleteModal
+        v-if="deleteModalIsOpend"
+        :productsToDelete="productsToDelete"
+        @close="closeDeleteModal"
+        @confirm="confirmDelete"
+    />
     <div class="centring container">
       <div class="big_wrapper">
         <h1 class="title">Products</h1>
@@ -171,7 +162,7 @@ export default {
             <button
                 style="background-color: #E43131"
                 class="buttons"
-                @click="deleteSelectedProducts"
+                @click="openDeleteModal"
             >
               delete
             </button>
