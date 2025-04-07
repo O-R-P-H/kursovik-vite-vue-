@@ -7,6 +7,16 @@ export const ProductApi = {
         console.log(req)
         return req.data
     },
+    async create(productData) {
+        const url = `${config.backendIP}/products`;
+        const req = await DefaultApiInstance.post(url, productData);
+        return req.data;
+    },
+    async update(id, productData) {
+        const url = `${config.backendIP}/products/${id}`;
+        const req = await DefaultApiInstance.put(url, productData);
+        return req.data;
+    },
 
     async deleteMultiple(ids) {
         const url = `${config.backendIP}/products`

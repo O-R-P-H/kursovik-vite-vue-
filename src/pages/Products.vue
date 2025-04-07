@@ -3,9 +3,11 @@ import router from "@/router/router.js";
 import ProductItem from "@/Components/products/ProductItem.vue";
 import {ProductApi} from "@/api/productApi/index.js";
 import DeleteModal from "@/Components/products/DeleteModal.vue";
+import AddModal from "@/Components/products/AddModal.vue";
+import EditModal from "@/Components/products/EditModal.vue";
 
 export default {
-  components: {DeleteModal, ProductItem},
+  components: {EditModal, AddModal, DeleteModal, ProductItem},
   data() {
     return {
       deleteModalIsOpend: false,
@@ -17,6 +19,11 @@ export default {
     }
   },
   computed: {
+    productToEdit() {
+      if (this.selectedProducts.size !== 1) return null;
+      const productId = Array.from(this.selectedProducts)[0];
+      return this.products.find(p => p.id === productId);
+    },
     filteredProducts() {
       return this.products.filter(product =>
           product.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
@@ -33,6 +40,32 @@ export default {
     await this.loadProducts();
   },
   methods: {
+    openEditModal() {
+      if (this.selectedProducts.size !== 1) {
+        alert('Пожалуйста, выберите ровно один продукт для редактирования');
+        return;
+      }
+      this.editModalIsOpend = true;
+    },
+
+    closeEditModal() {
+      this.editModalIsOpend = false;
+    },
+
+    hhandleProductUpdated(updatedProduct) {
+      const index = this.products.findIndex(p => p.id === updatedProduct.id);
+      if (index !== -1) {
+        // Для Vue 3 Composition API
+        this.products[index] = updatedProduct;
+        // Или для реактивности можно создать новый массив
+        this.products = [
+          ...this.products.slice(0, index),
+          updatedProduct,
+          ...this.products.slice(index + 1)
+        ];
+      }
+      this.selectedProducts.clear();
+    },
     async loadProducts() {
       try {
         const data = await ProductApi.getAll();
@@ -74,6 +107,17 @@ export default {
         alert('Произошла ошибка при удалении продуктов');
       }
     },
+    openAddModal() {
+      this.addModalIsOpend = true;
+    },
+
+    closeAddModal() {
+      this.addModalIsOpend = false;
+    },
+
+    handleProductAdded(newProduct) {
+      this.products.unshift(newProduct); // Добавляем новый продукт в начало списка
+    },
     handleEditProduct() {
       if (this.selectedProducts.size !== 1) {
         alert('Please select exactly one product to edit');
@@ -102,6 +146,17 @@ export default {
         :productsToDelete="productsToDelete"
         @close="closeDeleteModal"
         @confirm="confirmDelete"
+    />
+    <EditModal
+        v-if="editModalIsOpend && productToEdit"
+        :productToEdit="productToEdit"
+        @close="closeEditModal"
+        @product-updated="handleProductUpdated"
+    />
+    <AddModal
+        v-if="addModalIsOpend"
+        @close="closeAddModal"
+        @product-added="handleProductAdded"
     />
     <div class="centring container">
       <div class="big_wrapper">
@@ -155,7 +210,7 @@ export default {
             <button
                 style="background-color: #33C760"
                 class="buttons"
-                @click="handleAddProduct"
+                @click="openAddModal"
             >
               add
             </button>
@@ -169,7 +224,7 @@ export default {
             <button
                 style="background-color: #199BEC"
                 class="buttons"
-                @click="handleEditProduct"
+                @click="openEditModal"
             >
               edit
             </button>
