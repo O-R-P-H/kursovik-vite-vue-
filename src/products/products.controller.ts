@@ -47,4 +47,11 @@ export class ProductsController {
   remove(@Param('id') id: string): Promise<void> {
     return this.productsService.remove(+id);
   }
+
+  @Delete()
+  async deleteMultiple(@Body() ids: number[]) {
+    return this.productsService.deleteMultiple(ids);
+  }
+
+
 }

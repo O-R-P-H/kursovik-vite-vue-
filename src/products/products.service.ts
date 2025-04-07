@@ -44,4 +44,8 @@ export class ProductsService {
   async remove(id: number): Promise<void> {
     await this.productsRepository.delete(id);
   }
+  async deleteMultiple(ids: number[]) {
+    await this.productsRepository.delete(ids);
+    return { message: `${ids.length} товаров удалено` };
+  }
 }
