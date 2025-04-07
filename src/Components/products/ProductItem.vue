@@ -65,6 +65,7 @@ export default {
 }
 
 .main_wrapper:hover {
+  cursor: pointer;
   background-color: #d0d0d0;
   box-shadow: 0 3px 8px rgba(0,0,0,0.15);
 }

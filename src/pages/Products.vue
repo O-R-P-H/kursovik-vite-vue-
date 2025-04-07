@@ -1,6 +1,6 @@
 <script>
 import router from "@/router/router.js";
-import ProductItem from "@/Components/ProductItem.vue";
+import ProductItem from "@/Components/products/ProductItem.vue";
 import {ProductApi} from "@/api/productApi/index.js";
 
 export default {
@@ -39,6 +39,34 @@ export default {
     handleAddProduct() {
       // Логика добавления нового продукта
       router.push({path: "/products/new"});
+    },
+    async deleteSelectedProducts() {
+      if (this.selectedProducts.size === 0) {
+        alert('Пожалуйста, выберите хотя бы один продукт для удаления')
+        return
+      }
+
+      const idsToDelete = Array.from(this.selectedProducts)
+
+      try {
+        if (confirm(`Вы уверены, что хотите удалить ${idsToDelete.length} продуктов?`)) {
+          await ProductApi.deleteMultiple(idsToDelete)
+
+          // Удаляем продукты из локального состояния
+          this.products = this.products.filter(
+              product => !idsToDelete.includes(product.id)
+          )
+
+          // Очищаем выбор
+          this.selectedProducts.clear()
+
+          // Можно добавить уведомление об успехе
+          alert('Продукты успешно удалены!')
+        }
+      } catch (error) {
+        console.error('Ошибка при удалении:', error)
+        alert('Произошла ошибка при удалении продуктов')
+      }
     },
     handleDeleteProducts() {
       // Логика удаления выбранных продуктов
@@ -143,7 +171,7 @@ export default {
             <button
                 style="background-color: #E43131"
                 class="buttons"
-                @click="handleDeleteProducts"
+                @click="deleteSelectedProducts"
             >
               delete
             </button>
