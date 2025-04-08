@@ -21,7 +21,7 @@ export class CreateProductDto {
   @Length(1, 100)
   manufacturer: string;
 
-  @IsNumber()
-  @IsPositive()
-  price: number;
+  @IsString()
+  @Length(1, 100)
+  price: string;
 }
