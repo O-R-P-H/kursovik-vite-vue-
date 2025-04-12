@@ -21,5 +21,5 @@ export class Product {
   manufacturer: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
-  price: number;
+  price: string;
 }
