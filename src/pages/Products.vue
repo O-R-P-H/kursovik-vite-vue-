@@ -160,11 +160,11 @@ export default {
     />
     <div class="centring container">
       <div class="big_wrapper">
-        <h1 class="title">Products</h1>
+        <h1 class="title">Товары</h1>
         <div class="search_box">
           <input
               v-model="searchQuery"
-              placeholder="Search"
+              placeholder="Поиск"
               type="text"
               class="search"
           >
@@ -212,21 +212,21 @@ export default {
                 class="buttons"
                 @click="openAddModal"
             >
-              add
+              добавить
             </button>
             <button
                 style="background-color: #E43131"
                 class="buttons"
                 @click="openDeleteModal"
             >
-              delete
+              удалить
             </button>
             <button
                 style="background-color: #199BEC"
                 class="buttons"
                 @click="openEditModal"
             >
-              edit
+              редактировать
             </button>
           </div>
           <button
@@ -234,7 +234,7 @@ export default {
               class="buttons"
               @click="routerPushtoHome"
           >
-            back
+            назад
           </button>
         </div>
       </div>

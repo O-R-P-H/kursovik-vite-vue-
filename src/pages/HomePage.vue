@@ -21,9 +21,9 @@ export default {
     <div class="main">
       <p class="z">An advertising company</p>
       <div class="buttons">
-        <button @click="routerPushToEnterpices">Enterprises</button>
-        <button @click="routerPushToProducts">products</button>
-        <button @click="routerPushToPricelists">Price lists</button>
+        <button @click="routerPushToEnterpices">Предприятия</button>
+        <button @click="routerPushToProducts">Товары</button>
+        <button @click="routerPushToPricelists">Прайс-лист</button>
       </div>
       <div class="background"></div>
     </div>
