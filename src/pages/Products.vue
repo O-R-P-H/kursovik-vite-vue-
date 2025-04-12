@@ -52,7 +52,7 @@ export default {
       this.editModalIsOpend = false;
     },
 
-    hhandleProductUpdated(updatedProduct) {
+    handleProductUpdated(updatedProduct) {
       const index = this.products.findIndex(p => p.id === updatedProduct.id);
       if (index !== -1) {
         // Для Vue 3 Composition API
@@ -339,7 +339,8 @@ input::placeholder {
 }
 .buttons {
   height: 45px;
-  width: 130px;
+  padding-left: 20px;
+  padding-right: 20px;
   background-color: transparent;
   border-radius: 25px;
   color: white;

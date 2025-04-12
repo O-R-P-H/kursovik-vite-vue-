@@ -53,9 +53,6 @@
           <label>Цена:</label>
           <input
               v-model.number="formData.price"
-              type="number"
-              step="0.01"
-              min="0.01"
               required
           >
         </div>
@@ -85,7 +82,7 @@ export default {
           typeof value.group === 'string' &&
           typeof value.number === 'string' &&
           typeof value.manufacturer === 'string' &&
-          typeof value.price === 'number'
+          typeof value.price === 'string'
       )
     }
   },
