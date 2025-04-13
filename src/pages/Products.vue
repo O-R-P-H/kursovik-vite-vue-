@@ -2,12 +2,14 @@
 import router from "@/router/router.js";
 import ProductItem from "@/Components/products/ProductItem.vue";
 import {ProductApi} from "@/api/productApi/index.js";
-import DeleteModal from "@/Components/products/DeleteModal.vue";
-import AddModal from "@/Components/products/AddModal.vue";
-import EditModal from "@/Components/products/EditModal.vue";
+import DeleteModalProducts from "@/Components/products/DeleteModalProducts.vue";
+import AddModalProducts from "@/Components/products/AddModalProducts.vue";
+import EditModalProducts from "@/Components/products/EditModalProducts.vue";
 
 export default {
-  components: {EditModal, AddModal, DeleteModal, ProductItem},
+  components: {
+    EditModalProducts,
+    DeleteModalProducts, EditModal: EditModalProducts, AddModal: AddModalProducts, DeleteModal: DeleteModalProducts, ProductItem},
   data() {
     return {
       deleteModalIsOpend: false,
@@ -141,13 +143,13 @@ export default {
 
 <template>
   <div>
-    <DeleteModal
+    <DeleteModalProducts
         v-if="deleteModalIsOpend"
         :productsToDelete="productsToDelete"
         @close="closeDeleteModal"
         @confirm="confirmDelete"
     />
-    <EditModal
+    <EditModalProducts
         v-if="editModalIsOpend && productToEdit"
         :productToEdit="productToEdit"
         @close="closeEditModal"
@@ -253,7 +255,7 @@ export default {
 }
 
 .title {
-  margin-top: 50px;
+  margin-top: 20px;
   margin-left: 60px;
   font-size: 36px;
   font-weight: 600;
