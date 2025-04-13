@@ -172,11 +172,11 @@ export default {
         </div>
         <div class="titling">
           <div class="titling_item">
-            <p>Name</p>
+            <p>Название</p>
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
-            <p>Count</p>
+            <p>Кол-во</p>
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
@@ -184,15 +184,15 @@ export default {
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
-            <p>Number</p>
+            <p>Штрихкод</p>
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
-            <p>Manufacturer</p>
+            <p>Производитель</p>
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
-            <p>Price</p>
+            <p>Цена</p>
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
         </div>

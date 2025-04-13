@@ -38,12 +38,12 @@ export default {
       :class="{ 'selected': selected }"
       @click="$emit('select')"
   >
-    <p>{{ product.name }}</p>
-    <p>{{ product.count }}</p>
-    <p>{{ product.group }}</p>
-    <p>{{ product.number }}</p>
-    <p>{{ product.manufacturer }}</p>
-    <p>{{ product.price }}</p>
+    <div :title=product.name style="max-width: 75px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden">{{ product.name }}</div>
+    <div :title="product.count" style="display: flex; justify-content: center; width: 65px" >{{ product.count }}</div>
+    <div :title="product.group" style="max-width: 75px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden">{{ product.group }}</div>
+    <div :title="product.number">{{ product.number }}</div>
+    <div :title="product.manufacturer" style="max-width: 140px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden">{{ product.manufacturer }}</div>
+    <div :title="product.price">{{ product.price }}</div>
   </div>
 </template>
 
@@ -53,11 +53,11 @@ export default {
   padding: 38px;
   padding-right: 52px !important;
   display: flex;
-  justify-content: space-between;
+justify-content: space-between;
   background-color: #D9D9D9;
   border-radius: 27px;
   width: 910px;
-  height: 100px;
+  height: max-content;
   transition: all 0.3s ease;
   position: relative;
   border: 2px solid transparent;
@@ -79,7 +79,7 @@ export default {
   z-index: 1;
 }
 
-.main_wrapper p {
+.main_wrapper p,div {
   font-family: 'Inter-mf', sans-serif;
   font-size: 20px;
   font-weight: 200;

@@ -19,7 +19,7 @@ export default {
 <template>
   <div>
     <div class="main">
-      <p class="z">An advertising company</p>
+      <p class="z">Рекламное предприятие</p>
       <div class="buttons">
         <button @click="routerPushToEnterpices">Предприятия</button>
         <button @click="routerPushToProducts">Товары</button>
