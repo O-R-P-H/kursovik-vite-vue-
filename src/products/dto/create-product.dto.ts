@@ -19,9 +19,9 @@ export class CreateProductDto {
 
   @IsString()
   @Length(1, 100)
-  manufacturer: string;
+  manufacturerName: string; // Изменили поле для имени производителя
 
-  @IsString()
-  @Length(1, 100)
-  price: string;
+  @IsNumber()
+  @IsPositive()
+  price: number;
 }

@@ -7,6 +7,7 @@ import {
   Put,
   Delete,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
@@ -22,12 +23,16 @@ export class ProductsController {
     @Query('group') group?: string,
     @Query('manufacturer') manufacturer?: string,
   ): Promise<Product[]> {
-    return this.productsService.findAll({ name, group, manufacturer });
+    return this.productsService.findAll({
+      name,
+      group,
+      manufacturerName: manufacturer
+    });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Product> {
-    return this.productsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<Product> {
+    return this.productsService.findOne(id);
   }
 
   @Post()
@@ -37,21 +42,19 @@ export class ProductsController {
 
   @Put(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateProductDto: UpdateProductDto,
   ): Promise<Product> {
-    return this.productsService.update(+id, updateProductDto);
+    return this.productsService.update(id, updateProductDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string): Promise<void> {
-    return this.productsService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    return this.productsService.remove(id);
   }
 
   @Delete()
-  async deleteMultiple(@Body() ids: number[]) {
+  deleteMultiple(@Body() ids: number[]) {
     return this.productsService.deleteMultiple(ids);
   }
-
-
 }
