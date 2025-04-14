@@ -8,6 +8,6 @@ import { ManufacturersController } from './manufacturers.controller';
   imports: [TypeOrmModule.forFeature([Manufacturer])],
   providers: [ManufacturersService],
   controllers: [ManufacturersController],
-  exports: [ManufacturersService]
+  exports: [TypeOrmModule], // Важно: экспортируем TypeOrmModule
 })
 export class ManufacturersModule {}

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
 import { ProductsModule } from './products/products.module';
+import { Manufacturer } from "./entities/manufacturer.entity";
+import { ManufacturersModule } from "./manufacturers/manufacturers.module";
 
 @Module({
   imports: [
@@ -12,10 +14,11 @@ import { ProductsModule } from './products/products.module';
       username: 'postgres', // замени на свои
       password: 'A7A5,t4R34', // замени на свои
       database: 'productcompany',    // замени на свои
-      entities: [Product],
+      entities: [Product,Manufacturer],
       synchronize: true, // только для разработки!
     }),
     ProductsModule,
+    ManufacturersModule
   ],
 })
 export class AppModule {}
