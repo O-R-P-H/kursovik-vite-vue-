@@ -182,7 +182,7 @@ export default {
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
-            <p>Group</p>
+            <p>Группа</p>
             <img src="../../public/img/down_arrow.svg" alt="стрелочка вниз">
           </div>
           <div class="titling_item">
