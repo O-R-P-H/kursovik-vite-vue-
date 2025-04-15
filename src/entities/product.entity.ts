@@ -3,8 +3,8 @@ import { Manufacturer } from './manufacturer.entity';
 
 @Entity()
 export class Product {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ length: 100 })
   name: string;
@@ -18,13 +18,10 @@ export class Product {
   @Column({ length: 50, unique: true })
   number: string;
 
-  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.products, {
-    onDelete: 'CASCADE', // Опционально: удалять продукты при удалении производителя
-    eager: true, // Автоматически подгружать производителя при запросе продукта
-  })
-  @JoinColumn({ name: 'manufacturer_id' }) // Указываем имя колонки в БД
-  manufacturer: Manufacturer;
-
   @Column('decimal', { precision: 10, scale: 2 })
   price: number;
+
+  @ManyToOne(() => Manufacturer, { eager: true })
+  @JoinColumn({ name: 'manufacturer_id' })
+  manufacturer: Manufacturer;
 }

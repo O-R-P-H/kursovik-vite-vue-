@@ -15,7 +15,7 @@ export class Manufacturer {
   @Column({ length: 20 })
   phone: string;
 
-  @Column({ length: 100, name: 'director_name' })
+  @Column({ name: 'director_name', length: 100 })
   directorName: string;
 
   @OneToMany(() => Product, (product) => product.manufacturer)

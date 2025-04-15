@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Product } from '../entities/product.entity';
@@ -9,96 +13,121 @@ import { CreateProductDto, UpdateProductDto } from './dto';
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
-    private productsRepository: Repository<Product>,
+    private readonly productRepository: Repository<Product>,
     @InjectRepository(Manufacturer)
-    private manufacturerRepository: Repository<Manufacturer>,
+    private readonly manufacturerRepository: Repository<Manufacturer>,
   ) {}
 
   async findAll(query?: {
     name?: string;
     group?: string;
-    manufacturerName?: string;
+    manufacturer?: string;
   }): Promise<Product[]> {
-    const where = {};
-    if (query?.name) where['name'] = Like(`%${query.name}%`);
-    if (query?.group) where['group'] = query.group;
-    if (query?.manufacturerName) {
-      where['manufacturer'] = { name: Like(`%${query.manufacturerName}%`) };
+    const where: any = {};
+    if (query?.name) where.name = Like(`%${query.name}%`);
+    if (query?.group) where.group = query.group;
+    if (query?.manufacturer) {
+      where.manufacturer = { name: Like(`%${query.manufacturer}%`) };
     }
 
-    return this.productsRepository.find({
+    return this.productRepository.find({
       where,
-      relations: ['manufacturer']
+      relations: ['manufacturer'],
     });
   }
 
-  async findOne(id: number): Promise<Product> {
-    return this.productsRepository.findOne({
+  async findOne(id: string): Promise<Product> {
+    const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['manufacturer']
-    });
-  }
-
-  async create(createProductDto: CreateProductDto): Promise<Product> {
-    // Ищем или создаем производителя
-    let manufacturer = await this.manufacturerRepository.findOne({
-      where: { name: createProductDto.manufacturerName }
+      relations: ['manufacturer'],
     });
 
-    if (!manufacturer) {
-      manufacturer = this.manufacturerRepository.create({
-        name: createProductDto.manufacturerName,
-        address: 'Не указан', // Можно сделать обязательным в DTO
-        phone: 'Не указан',
-        directorName: 'Не указан'
-      });
-      await this.manufacturerRepository.save(manufacturer);
-    }
-
-    const product = this.productsRepository.create({
-      ...createProductDto,
-      manufacturer
-    });
-
-    return this.productsRepository.save(product);
-  }
-
-  async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
-    const product = await this.findOne(id);
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException(`Товар с ID ${id} не найден`);
     }
 
-    // Обновляем производителя при необходимости
-    if (updateProductDto.manufacturerName &&
-      updateProductDto.manufacturerName !== product.manufacturer.name) {
-      let manufacturer = await this.manufacturerRepository.findOne({
-        where: { name: updateProductDto.manufacturerName }
-      });
+    return product;
+  }
 
-      if (!manufacturer) {
-        manufacturer = this.manufacturerRepository.create({
-          name: updateProductDto.manufacturerName,
+  async create(dto: CreateProductDto): Promise<Product> {
+    // Валидация цены
+    const price = parseFloat(dto.price);
+    if (isNaN(price) || price <= 0) {
+      throw new BadRequestException('Некорректное значение цены');
+    }
+
+    // Получаем или создаем производителя
+    const manufacturer = await this.manufacturerRepository.findOne({
+      where: { name: dto.manufacturer },
+    });
+
+    const newManufacturer = manufacturer
+      ? manufacturer
+      : await this.manufacturerRepository.save(
+        this.manufacturerRepository.create({
+          name: dto.manufacturer,
           address: 'Не указан',
           phone: 'Не указан',
-          directorName: 'Не указан'
-        });
-        await this.manufacturerRepository.save(manufacturer);
-      }
-      product.manufacturer = manufacturer;
+          directorName: 'Не указан',
+        }),
+      );
+
+    // Создаем продукт
+    const product = this.productRepository.create({
+      name: dto.name,
+      count: dto.count,
+      group: dto.group,
+      number: dto.number,
+      price: price,
+      manufacturer: newManufacturer,
+    });
+
+    return this.productRepository.save(product);
+  }
+
+  async update(id: string, dto: UpdateProductDto): Promise<Product> {
+    const product = await this.findOne(id);
+
+    // Обновление производителя при необходимости
+    if (dto.manufacturer && dto.manufacturer !== product.manufacturer.name) {
+      const manufacturer = await this.manufacturerRepository.findOne({
+        where: { name: dto.manufacturer },
+      });
+
+      product.manufacturer = manufacturer
+        ? manufacturer
+        : await this.manufacturerRepository.save(
+          this.manufacturerRepository.create({
+            name: dto.manufacturer,
+            address: 'Не указан',
+            phone: 'Не указан',
+            directorName: 'Не указан',
+          }),
+        );
     }
 
-    // Обновляем остальные поля
-    Object.assign(product, updateProductDto);
-    return this.productsRepository.save(product);
+    // Валидация цены
+    if (dto.price) {
+      const price = parseFloat(dto.price);
+      if (isNaN(price) || price <= 0) {
+        throw new BadRequestException('Некорректное значение цены');
+      }
+      product.price = price;
+    }
+
+    // Обновление остальных полей
+    if (dto.name) product.name = dto.name;
+    if (dto.count) product.count = dto.count;
+    if (dto.group) product.group = dto.group;
+    if (dto.number) product.number = dto.number;
+
+    return this.productRepository.save(product);
   }
 
-  async remove(id: number): Promise<void> {
-    await this.productsRepository.delete(id);
-  }
-
-  async deleteMultiple(ids: number[]): Promise<{ message: string }> {
-    await this.productsRepository.delete(ids);
-    return { message: `${ids.length} товаров удалено` };
+  async remove(id: string): Promise<void> {
+    const result = await this.productRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Товар с ID ${id} не найден`);
+    }
   }
 }
