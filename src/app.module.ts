@@ -4,6 +4,8 @@ import { Product } from './entities/product.entity';
 import { ProductsModule } from './products/products.module';
 import { Manufacturer } from "./entities/manufacturer.entity";
 import { ManufacturersModule } from "./manufacturers/manufacturers.module";
+import { PriceListModule } from './price-list/price-list.module';
+import { PriceList } from "./entities/price-list.entity";
 
 @Module({
   imports: [
@@ -14,11 +16,12 @@ import { ManufacturersModule } from "./manufacturers/manufacturers.module";
       username: 'postgres', // замени на свои
       password: 'A7A5,t4R34', // замени на свои
       database: 'productcompany',    // замени на свои
-      entities: [Product,Manufacturer],
+      entities: [Product,Manufacturer,PriceList],
       synchronize: true, // только для разработки!
     }),
     ProductsModule,
-    ManufacturersModule
+    ManufacturersModule,
+    PriceListModule
   ],
 })
 export class AppModule {}

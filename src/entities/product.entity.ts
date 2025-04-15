@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { Manufacturer } from './manufacturer.entity';
+import { PriceList } from "./price-list.entity";
 
 @Entity()
 export class Product {
@@ -24,4 +25,7 @@ export class Product {
   @ManyToOne(() => Manufacturer, { eager: true }) // Автоподгрузка производителя
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
+
+  @OneToMany(() => PriceList, (priceList) => priceList.product)
+  priceLists: PriceList[];
 }
