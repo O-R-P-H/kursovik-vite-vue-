@@ -3,8 +3,8 @@ import { Manufacturer } from './manufacturer.entity';
 
 @Entity()
 export class Product {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn() // Автоинкрементный ID (1, 2, 3...)
+  id: number;
 
   @Column({ length: 100 })
   name: string;
@@ -21,7 +21,7 @@ export class Product {
   @Column('decimal', { precision: 10, scale: 2 })
   price: number;
 
-  @ManyToOne(() => Manufacturer, { eager: true })
+  @ManyToOne(() => Manufacturer, { eager: true }) // Автоподгрузка производителя
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
 }

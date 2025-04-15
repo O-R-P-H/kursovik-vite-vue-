@@ -13,9 +13,9 @@ import { CreateProductDto, UpdateProductDto } from './dto';
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
+    private readonly productRepo: Repository<Product>,
     @InjectRepository(Manufacturer)
-    private readonly manufacturerRepository: Repository<Manufacturer>,
+    private readonly manufacturerRepo: Repository<Manufacturer>,
   ) {}
 
   async findAll(query?: {
@@ -30,22 +30,15 @@ export class ProductsService {
       where.manufacturer = { name: Like(`%${query.manufacturer}%`) };
     }
 
-    return this.productRepository.find({
-      where,
-      relations: ['manufacturer'],
-    });
+    return this.productRepo.find({ where, relations: ['manufacturer'] });
   }
 
-  async findOne(id: string): Promise<Product> {
-    const product = await this.productRepository.findOne({
+  async findOne(id: number): Promise<Product> {
+    const product = await this.productRepo.findOne({
       where: { id },
       relations: ['manufacturer'],
     });
-
-    if (!product) {
-      throw new NotFoundException(`Товар с ID ${id} не найден`);
-    }
-
+    if (!product) throw new NotFoundException(`Товар #${id} не найден`);
     return product;
   }
 
@@ -53,66 +46,51 @@ export class ProductsService {
     // Валидация цены
     const price = parseFloat(dto.price);
     if (isNaN(price) || price <= 0) {
-      throw new BadRequestException('Некорректное значение цены');
+      throw new BadRequestException('Некорректная цена');
     }
 
-    // Получаем или создаем производителя
-    const manufacturer = await this.manufacturerRepository.findOne({
-      where: { name: dto.manufacturer },
+    // Поиск или создание производителя
+    let manufacturer = await this.manufacturerRepo.findOne({
+      where: { name: dto.manufacturer }
+    });
+    if (!manufacturer) {
+      manufacturer = this.manufacturerRepo.create({
+        name: dto.manufacturer,
+        address: 'Не указан',
+        phone: 'Не указан',
+        directorName: 'Не указан',
+      });
+      manufacturer = await this.manufacturerRepo.save(manufacturer);
+    }
+
+    // Создание товара
+    const product = this.productRepo.create({
+      ...dto,
+      price: price,
+      manufacturer,
     });
 
-    const newManufacturer = manufacturer
-      ? manufacturer
-      : await this.manufacturerRepository.save(
-        this.manufacturerRepository.create({
+    return this.productRepo.save(product);
+  }
+
+  async update(id: number, dto: UpdateProductDto): Promise<Product> {
+    const product = await this.findOne(id);
+
+    // Обновление производителя
+    if (dto.manufacturer && dto.manufacturer !== product.manufacturer.name) {
+      let manufacturer = await this.manufacturerRepo.findOne({
+        where: { name: dto.manufacturer }
+      });
+      if (!manufacturer) {
+        manufacturer = this.manufacturerRepo.create({
           name: dto.manufacturer,
           address: 'Не указан',
           phone: 'Не указан',
           directorName: 'Не указан',
-        }),
-      );
-
-    // Создаем продукт
-    const product = this.productRepository.create({
-      name: dto.name,
-      count: dto.count,
-      group: dto.group,
-      number: dto.number,
-      price: price,
-      manufacturer: newManufacturer,
-    });
-
-    return this.productRepository.save(product);
-  }
-
-  async update(id: string, dto: UpdateProductDto): Promise<Product> {
-    const product = await this.findOne(id);
-
-    // Обновление производителя при необходимости
-    if (dto.manufacturer && dto.manufacturer !== product.manufacturer.name) {
-      const manufacturer = await this.manufacturerRepository.findOne({
-        where: { name: dto.manufacturer },
-      });
-
-      product.manufacturer = manufacturer
-        ? manufacturer
-        : await this.manufacturerRepository.save(
-          this.manufacturerRepository.create({
-            name: dto.manufacturer,
-            address: 'Не указан',
-            phone: 'Не указан',
-            directorName: 'Не указан',
-          }),
-        );
-    }
-
-    // Валидация цены
-    if (dto.price) {
-      const price = parseFloat(dto.price);
-      if (isNaN(price) || price <= 0) {
-        throw new BadRequestException('Некорректное значение цены');
+        });
+        manufacturer = await this.manufacturerRepo.save(manufacturer);
       }
-      product.price = price;
+      product.manufacturer = manufacturer;
     }
 
     // Обновление остальных полей
@@ -120,14 +98,19 @@ export class ProductsService {
     if (dto.count) product.count = dto.count;
     if (dto.group) product.group = dto.group;
     if (dto.number) product.number = dto.number;
+    if (dto.price) {
+      const price = parseFloat(dto.price);
+      if (isNaN(price)) throw new BadRequestException('Некорректная цена');
+      product.price = price;
+    }
 
-    return this.productRepository.save(product);
+    return this.productRepo.save(product);
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.productRepository.delete(id);
+  async remove(id: number): Promise<void> {
+    const result = await this.productRepo.delete(id);
     if (result.affected === 0) {
-      throw new NotFoundException(`Товар с ID ${id} не найден`);
+      throw new NotFoundException(`Товар #${id} не найден`);
     }
   }
 }
