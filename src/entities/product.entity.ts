@@ -17,7 +17,7 @@ export class Product {
   @Column({ length: 50 })
   group: string;
 
-  @Column({ length: 50, unique: true })
+  @Column({ length: 50 })
   number: string;
 
   @Column({
