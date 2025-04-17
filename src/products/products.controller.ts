@@ -1,3 +1,4 @@
+// products.controller.ts
 import {
   Controller,
   Get,
