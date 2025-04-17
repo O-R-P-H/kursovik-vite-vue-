@@ -40,10 +40,12 @@ export class ProductsService {
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
+      // Проверка цены
       if (!this.isValidPrice(createProductDto.price)) {
         throw new BadRequestException('Некорректное значение цены');
       }
 
+      // Работа с производителем
       let manufacturer = await manager.findOne(Manufacturer, {
         where: { name: createProductDto.manufacturer }
       });
@@ -58,6 +60,7 @@ export class ProductsService {
         manufacturer = await manager.save(manufacturer);
       }
 
+      // Создание продукта
       const product = manager.create(Product, {
         name: createProductDto.name,
         count: createProductDto.count,
@@ -69,6 +72,7 @@ export class ProductsService {
 
       const savedProduct = await manager.save(product);
 
+      // Создание прайс-листа
       const priceList = manager.create(PriceList, {
         price: createProductDto.price,
         productName: createProductDto.name,
@@ -82,6 +86,8 @@ export class ProductsService {
       return savedProduct;
     });
   }
+
+
 
   async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
