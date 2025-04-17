@@ -4,18 +4,22 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, DataSource } from 'typeorm';
 import { Product } from '../entities/product.entity';
 import { Manufacturer } from '../entities/manufacturer.entity';
+import { PriceList } from '../entities/price-list.entity';
 import { CreateProductDto, UpdateProductDto } from './dto';
 
 @Injectable()
 export class ProductsService {
   constructor(
+    private dataSource: DataSource,
     @InjectRepository(Product)
-    private readonly productRepo: Repository<Product>,
+    private productRepo: Repository<Product>,
     @InjectRepository(Manufacturer)
-    private readonly manufacturerRepo: Repository<Manufacturer>,
+    private manufacturerRepo: Repository<Manufacturer>,
+    @InjectRepository(PriceList)
+    private priceListRepo: Repository<PriceList>,
   ) {}
 
   async findAll(query?: {
@@ -30,81 +34,103 @@ export class ProductsService {
       where.manufacturer = { name: Like(`%${query.manufacturer}%`) };
     }
 
-    return this.productRepo.find({ where, relations: ['manufacturer'] });
+    return this.productRepo.find({
+      where,
+      relations: ['manufacturer', 'priceLists']
+    });
   }
 
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepo.findOne({
       where: { id },
-      relations: ['manufacturer'],
+      relations: ['manufacturer', 'priceLists'],
     });
     if (!product) throw new NotFoundException(`Товар #${id} не найден`);
     return product;
   }
 
   async create(dto: CreateProductDto): Promise<Product> {
-    // Валидация цены
-    const price = parseFloat(dto.price);
-    if (isNaN(price) || price <= 0) {
-      throw new BadRequestException('Некорректная цена');
-    }
+    return this.dataSource.transaction(async (manager) => {
+      // Валидация цены
+      const price = parseFloat(dto.price);
+      if (isNaN(price) || price <= 0) {
+        throw new BadRequestException('Некорректная цена');
+      }
 
-    // Поиск или создание производителя
-    let manufacturer = await this.manufacturerRepo.findOne({
-      where: { name: dto.manufacturer }
-    });
-    if (!manufacturer) {
-      manufacturer = this.manufacturerRepo.create({
-        name: dto.manufacturer,
-        address: 'Не указан',
-        phone: 'Не указан',
-        directorName: 'Не указан',
-      });
-      manufacturer = await this.manufacturerRepo.save(manufacturer);
-    }
-
-    // Создание товара
-    const product = this.productRepo.create({
-      ...dto,
-      price: price,
-      manufacturer,
-    });
-
-    return this.productRepo.save(product);
-  }
-
-  async update(id: number, dto: UpdateProductDto): Promise<Product> {
-    const product = await this.findOne(id);
-
-    // Обновление производителя
-    if (dto.manufacturer && dto.manufacturer !== product.manufacturer.name) {
-      let manufacturer = await this.manufacturerRepo.findOne({
+      // Производитель
+      let manufacturer = await manager.findOne(Manufacturer, {
         where: { name: dto.manufacturer }
       });
       if (!manufacturer) {
-        manufacturer = this.manufacturerRepo.create({
+        manufacturer = manager.create(Manufacturer, {
           name: dto.manufacturer,
           address: 'Не указан',
           phone: 'Не указан',
           directorName: 'Не указан',
         });
-        manufacturer = await this.manufacturerRepo.save(manufacturer);
+        await manager.save(manufacturer);
       }
-      product.manufacturer = manufacturer;
-    }
 
-    // Обновление остальных полей
-    if (dto.name) product.name = dto.name;
-    if (dto.count) product.count = dto.count;
-    if (dto.group) product.group = dto.group;
-    if (dto.number) product.number = dto.number;
-    if (dto.price) {
-      const price = parseFloat(dto.price);
-      if (isNaN(price)) throw new BadRequestException('Некорректная цена');
-      product.price = price;
-    }
+      // Товар
+      const product = manager.create(Product, {
+        name: dto.name,
+        count: dto.count,
+        group: dto.group,
+        number: dto.number,
+        price: price,
+        manufacturer,
+      });
+      await manager.save(product);
 
-    return this.productRepo.save(product);
+      // Прайс-лист
+      const priceList = manager.create(PriceList, {
+        price: price,
+        productName: dto.name,
+        group: dto.group,
+        product,
+        manufacturer,
+      });
+      await manager.save(priceList);
+
+      return product;
+    });
+  }
+
+  async update(id: number, dto: UpdateProductDto): Promise<Product> {
+    return this.dataSource.transaction(async (manager) => {
+      const product = await this.findOne(id);
+
+      // Производитель
+      if (dto.manufacturer && dto.manufacturer !== product.manufacturer.name) {
+        let manufacturer = await manager.findOne(Manufacturer, {
+          where: { name: dto.manufacturer }
+        });
+        if (!manufacturer) {
+          manufacturer = manager.create(Manufacturer, {
+            name: dto.manufacturer,
+            address: 'Не указан',
+            phone: 'Не указан',
+            directorName: 'Не указан',
+          });
+          await manager.save(manufacturer);
+        }
+        product.manufacturer = manufacturer;
+      }
+
+      // Основные поля
+      if (dto.name) product.name = dto.name;
+      if (dto.count) product.count = dto.count;
+      if (dto.group) product.group = dto.group;
+      if (dto.number) product.number = dto.number;
+      if (dto.price) {
+        const price = parseFloat(dto.price);
+        if (isNaN(price)) throw new BadRequestException('Некорректная цена');
+        product.price = price;
+      }
+
+      await manager.save(product);
+      return product;
+    });
   }
 
   async remove(id: number): Promise<void> {

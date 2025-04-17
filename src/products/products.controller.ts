@@ -8,7 +8,6 @@ import {
   Delete,
   Query,
   ParseIntPipe,
-  HttpStatus,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
@@ -21,8 +20,12 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Получить список товаров' })
-  @ApiResponse({ status: 200, type: [Product] })
+  @ApiOperation({ summary: 'Получить список товаров с прайс-листами' })
+  @ApiResponse({
+    status: 200,
+    description: 'Список товаров с производителями и прайс-листами',
+    type: [Product]
+  })
   async findAll(
     @Query('name') name?: string,
     @Query('group') group?: string,
@@ -32,23 +35,32 @@ export class ProductsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Получить товар по ID' })
-  @ApiResponse({ status: 200, type: Product })
-  @ApiResponse({ status: 404, description: 'Товар не найден' })
+  @ApiOperation({ summary: 'Получить товар по ID с прайс-листами' })
+  @ApiResponse({
+    status: 200,
+    description: 'Товар с производителем и связанными прайс-листами',
+    type: Product
+  })
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<Product> {
     return this.productsService.findOne(id);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Создать новый товар' })
-  @ApiResponse({ status: 201, type: Product })
+  @ApiOperation({
+    summary: 'Создать товар',
+    description: 'Автоматически создает производителя и прайс-лист'
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Товар создан вместе с прайс-листом',
+    type: Product
+  })
   async create(@Body() dto: CreateProductDto): Promise<Product> {
     return this.productsService.create(dto);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Обновить товар' })
-  @ApiResponse({ status: 200, type: Product })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto,
@@ -57,9 +69,10 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Удалить товар' })
-  @ApiResponse({ status: 204 })
-  @ApiResponse({ status: 404, description: 'Товар не найден' })
+  @ApiOperation({
+    summary: 'Удалить товар',
+    description: 'Удаляет товар и связанные прайс-листы (каскадно)'
+  })
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.productsService.remove(id);
   }

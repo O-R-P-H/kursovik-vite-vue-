@@ -1,10 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Manufacturer } from './manufacturer.entity';
-import { PriceList } from "./price-list.entity";
+import { PriceList } from './price-list.entity';
 
 @Entity()
 export class Product {
-  @PrimaryGeneratedColumn() // Автоинкрементный ID (1, 2, 3...)
+  @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ length: 100 })
@@ -22,7 +22,7 @@ export class Product {
   @Column('decimal', { precision: 10, scale: 2 })
   price: number;
 
-  @ManyToOne(() => Manufacturer, { eager: true }) // Автоподгрузка производителя
+  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.products, { eager: true })
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
 
