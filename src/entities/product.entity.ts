@@ -1,6 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Manufacturer } from './manufacturer.entity';
-import { PriceList } from './price-list.entity';
 
 @Entity()
 export class Product {
@@ -19,13 +18,13 @@ export class Product {
   @Column({ length: 50, unique: true })
   number: string;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  price: number;
+  @Column({ type: 'decimal', precision: 10, scale: 2, transformer: {
+      to: (value: string) => value, // сохраняем как string
+      from: (value: string) => value // получаем как string
+    }})
+  price: string;
 
-  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.products, { eager: true })
+  @ManyToOne(() => Manufacturer, { eager: true })
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
-
-  @OneToMany(() => PriceList, (priceList) => priceList.product)
-  priceLists: PriceList[];
 }

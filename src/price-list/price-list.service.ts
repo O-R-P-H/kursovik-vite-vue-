@@ -13,36 +13,58 @@ export class PriceListService {
   constructor(
     private dataSource: DataSource,
     @InjectRepository(PriceList)
-    private priceListRepo: Repository<PriceList>
-  ) {} // Удалены неиспользуемые manufacturerRepo и productRepo
+    private priceListRepository: Repository<PriceList>
+  ) {}
 
-  async create(dto: CreatePriceListDto): Promise<PriceList> {
+  async create(createPriceListDto: CreatePriceListDto): Promise<PriceList> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
-      const price = this.parsePrice(dto.price);
+      // Валидация цены
+      if (!this.isValidPrice(createPriceListDto.price)) {
+        throw new BadRequestException('Некорректное значение цены');
+      }
 
-      const manufacturer = await manager.findOne(Manufacturer, {
-        where: { name: dto.manufacturer }
-      }) || await this.createManufacturer(manager, dto.manufacturer);
+      // Поиск или создание производителя
+      let manufacturer = await manager.findOne(Manufacturer, {
+        where: { name: createPriceListDto.manufacturer }
+      });
 
-      const product = await manager.findOne(Product, {
+      if (!manufacturer) {
+        manufacturer = manager.create(Manufacturer, {
+          name: createPriceListDto.manufacturer,
+          address: 'Не указан',
+          phone: 'Не указан',
+          directorName: 'Не указан'
+        });
+        manufacturer = await manager.save(manufacturer);
+      }
+
+      // Поиск или создание продукта
+      let product = await manager.findOne(Product, {
         where: {
-          name: dto.productName,
+          name: createPriceListDto.productName,
           manufacturer: { id: manufacturer.id }
         }
-      }) || await this.createProduct(
-        manager,
-        dto.productName,
-        dto.group,
-        price,
-        manufacturer
-      );
+      });
 
+      if (!product) {
+        product = manager.create(Product, {
+          name: createPriceListDto.productName,
+          price: createPriceListDto.price,
+          group: createPriceListDto.group,
+          number: 'не указан',
+          count: 0,
+          manufacturer: manufacturer
+        });
+        product = await manager.save(product);
+      }
+
+      // Создание прайс-листа
       const priceList = manager.create(PriceList, {
-        price,
-        productName: dto.productName,
-        group: dto.group,
-        product,
-        manufacturer
+        price: createPriceListDto.price,
+        productName: createPriceListDto.productName,
+        group: createPriceListDto.group,
+        product: product,
+        manufacturer: manufacturer
       });
 
       return manager.save(priceList);
@@ -50,108 +72,109 @@ export class PriceListService {
   }
 
   async findAll(): Promise<PriceList[]> {
-    return this.priceListRepo.find({
+    return this.priceListRepository.find({
       relations: ['manufacturer', 'product'],
       order: { id: 'ASC' }
     });
   }
 
   async findOne(id: number): Promise<PriceList> {
-    const priceList = await this.priceListRepo.findOne({
+    const priceList = await this.priceListRepository.findOne({
       where: { id },
       relations: ['manufacturer', 'product']
     });
-    if (!priceList) throw new NotFoundException(`Прайс-лист #${id} не найден`);
+
+    if (!priceList) {
+      throw new NotFoundException(`Прайс-лист с ID ${id} не найден`);
+    }
+
     return priceList;
   }
 
-  async update(id: number, dto: UpdatePriceListDto): Promise<PriceList> {
+  async update(id: number, updatePriceListDto: UpdatePriceListDto): Promise<PriceList> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const priceList = await this.findOne(id);
-      let shouldUpdate = false;
+      let needsUpdate = false;
 
-      if (dto.manufacturer && dto.manufacturer !== priceList.manufacturer.name) {
-        priceList.manufacturer = await manager.findOne(Manufacturer, {
-          where: { name: dto.manufacturer }
-        }) || await this.createManufacturer(manager, dto.manufacturer);
-        shouldUpdate = true;
+      // Обновление производителя при необходимости
+      if (updatePriceListDto.manufacturer && updatePriceListDto.manufacturer !== priceList.manufacturer.name) {
+        let manufacturer = await manager.findOne(Manufacturer, {
+          where: { name: updatePriceListDto.manufacturer }
+        });
+
+        if (!manufacturer) {
+          manufacturer = manager.create(Manufacturer, {
+            name: updatePriceListDto.manufacturer,
+            address: 'Не указан',
+            phone: 'Не указан',
+            directorName: 'Не указан'
+          });
+          manufacturer = await manager.save(manufacturer);
+        }
+
+        priceList.manufacturer = manufacturer;
+        needsUpdate = true;
       }
 
-      if (dto.productName && dto.productName !== priceList.productName) {
-        const price = dto.price ? this.parsePrice(dto.price) : priceList.price;
-        priceList.product = await manager.findOne(Product, {
+      // Обновление продукта при необходимости
+      if (updatePriceListDto.productName && updatePriceListDto.productName !== priceList.productName) {
+        let product = await manager.findOne(Product, {
           where: {
-            name: dto.productName,
+            name: updatePriceListDto.productName,
             manufacturer: { id: priceList.manufacturer.id }
           }
-        }) || await this.createProduct(
-          manager,
-          dto.productName,
-          dto.group || priceList.group,
-          price,
-          priceList.manufacturer
-        );
-        priceList.productName = dto.productName;
-        shouldUpdate = true;
+        });
+
+        if (!product) {
+          product = manager.create(Product, {
+            name: updatePriceListDto.productName,
+            price: updatePriceListDto.price || priceList.price,
+            group: updatePriceListDto.group || priceList.group,
+            number: 'не указан',
+            count: 0,
+            manufacturer: priceList.manufacturer
+          });
+          product = await manager.save(product);
+        }
+
+        priceList.product = product;
+        priceList.productName = updatePriceListDto.productName;
+        needsUpdate = true;
       }
 
-      if (dto.group && dto.group !== priceList.group) {
-        priceList.group = dto.group;
-        shouldUpdate = true;
+      // Обновление группы
+      if (updatePriceListDto.group && updatePriceListDto.group !== priceList.group) {
+        priceList.group = updatePriceListDto.group;
+        needsUpdate = true;
       }
 
-      if (dto.price) {
-        priceList.price = this.parsePrice(dto.price);
-        shouldUpdate = true;
+      // Обновление цены
+      if (updatePriceListDto.price) {
+        if (!this.isValidPrice(updatePriceListDto.price)) {
+          throw new BadRequestException('Некорректное значение цены');
+        }
+        priceList.price = updatePriceListDto.price;
+        needsUpdate = true;
       }
 
-      return shouldUpdate ? manager.save(priceList) : priceList;
+      if (needsUpdate) {
+        return manager.save(priceList);
+      }
+
+      return priceList;
     });
   }
 
   async remove(id: number): Promise<void> {
-    const result = await this.priceListRepo.delete(id);
+    const result = await this.priceListRepository.delete(id);
     if (result.affected === 0) {
-      throw new NotFoundException(`Прайс-лист #${id} не найден`);
+      throw new NotFoundException(`Прайс-лист с ID ${id} не найден`);
     }
   }
 
-  private async createManufacturer(
-    manager: EntityManager,
-    name: string
-  ): Promise<Manufacturer> {
-    const manufacturer = manager.create(Manufacturer, {
-      name,
-      address: 'Не указан',
-      phone: 'Не указан',
-      directorName: 'Не указан'
-    });
-    return manager.save(manufacturer);
-  }
-
-  private async createProduct(
-    manager: EntityManager,
-    name: string,
-    group: string,
-    price: number,
-    manufacturer: Manufacturer
-  ): Promise<Product> {
-    const product = manager.create(Product, {
-      name,
-      price,
-      group,
-      number: 'не указан',
-      count: 0,
-      manufacturer
-    });
-    return manager.save(product);
-  }
-
-  private parsePrice(price: string): number {
-    const value = parseFloat(price);
-    if (isNaN(value) || value < 0) {
-      throw new BadRequestException('Некорректное значение цены');
-    }
-    return parseFloat(value.toFixed(2));
+  private isValidPrice(price: string): boolean {
+    // Проверка что цена является корректным числом
+    const numberValue = parseFloat(price);
+    return !isNaN(numberValue) && numberValue >= 0;
   }
 }

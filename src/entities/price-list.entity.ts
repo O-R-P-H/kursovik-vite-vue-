@@ -7,16 +7,19 @@ export class PriceList {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.priceLists, { eager: true })
+  @ManyToOne(() => Manufacturer, { eager: true })
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
 
-  @ManyToOne(() => Product, (product) => product.priceLists, { eager: true })
+  @ManyToOne(() => Product, { eager: true })
   @JoinColumn({ name: 'product_id' })
   product: Product;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  price: number;
+  @Column({ type: 'decimal', precision: 10, scale: 2, transformer: {
+      to: (value: string) => value, // сохраняем как string
+      from: (value: string) => value // получаем как string
+    }})
+  price: string;
 
   @Column({ length: 100 })
   productName: string;
