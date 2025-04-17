@@ -18,16 +18,8 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async findAll(
-    @Query('name') name?: string,
-    @Query('group') group?: string,
-    @Query('manufacturer') manufacturer?: string
-  ): Promise<Product[]> {
-    return this.productsService.findAll({
-      name,
-      group,
-      manufacturer
-    });
+  getAll(): Promise<Product[]> {
+    return this.productsService.getAll();
   }
 
   @Get(':id')

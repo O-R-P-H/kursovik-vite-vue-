@@ -19,24 +19,13 @@ export class ProductsService {
     private priceListRepository: Repository<PriceList>
   ) {}
 
-  async findAll(query?: {
-    name?: string;
-    group?: string;
-    manufacturer?: string;
-  }): Promise<Product[]> {
-    const where: any = {};
-    if (query?.name) where.name = Like(`%${query.name}%`);
-    if (query?.group) where.group = query.group;
-    if (query?.manufacturer) {
-      where.manufacturer = { name: Like(`%${query.manufacturer}%`) };
-    }
-
+  async getAll(): Promise<Product[]> {
     return this.productRepository.find({
-      where,
-      relations: ['manufacturer', 'priceLists'],
+      relations: ['manufacturer'],
       order: { id: 'ASC' }
     });
   }
+
 
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepository.findOne({
