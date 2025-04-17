@@ -50,12 +50,10 @@ export class ProductsService {
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
-      // Валидация цены (остается string)
       if (!this.isValidPrice(createProductDto.price)) {
         throw new BadRequestException('Некорректное значение цены');
       }
 
-      // Поиск или создание производителя
       let manufacturer = await manager.findOne(Manufacturer, {
         where: { name: createProductDto.manufacturer }
       });
@@ -70,19 +68,17 @@ export class ProductsService {
         manufacturer = await manager.save(manufacturer);
       }
 
-      // Создание продукта
       const product = manager.create(Product, {
         name: createProductDto.name,
         count: createProductDto.count,
         group: createProductDto.group,
         number: createProductDto.number,
-        price: createProductDto.price, // сохраняем как string
+        price: createProductDto.price,
         manufacturer: manufacturer,
       });
 
       const savedProduct = await manager.save(product);
 
-      // Создание связанного прайс-листа
       const priceList = manager.create(PriceList, {
         price: createProductDto.price,
         productName: createProductDto.name,
@@ -102,7 +98,6 @@ export class ProductsService {
       const product = await this.findOne(id);
       let needsUpdate = false;
 
-      // Обновление производителя
       if (updateProductDto.manufacturer && updateProductDto.manufacturer !== product.manufacturer.name) {
         let manufacturer = await manager.findOne(Manufacturer, {
           where: { name: updateProductDto.manufacturer }
@@ -121,7 +116,6 @@ export class ProductsService {
         needsUpdate = true;
       }
 
-      // Обновление основных полей
       if (updateProductDto.name && updateProductDto.name !== product.name) {
         product.name = updateProductDto.name;
         needsUpdate = true;
@@ -153,7 +147,6 @@ export class ProductsService {
       if (needsUpdate) {
         const updatedProduct = await manager.save(product);
 
-        // Обновляем связанный прайс-лист
         if (updateProductDto.name || updateProductDto.group || updateProductDto.price) {
           const priceList = await manager.findOne(PriceList, {
             where: { product: { id: product.id } }
