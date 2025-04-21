@@ -19,9 +19,15 @@ export class Manufacturer {
   @Column({ name: 'director_name', length: 100 })
   directorName: string;
 
-  @OneToMany(() => Product, (product) => product.manufacturer)
+  @OneToMany(() => Product, (product) => product.manufacturer, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
   products: Product[];
 
-  @OneToMany(() => PriceList, (priceList) => priceList.manufacturer)
+  @OneToMany(() => PriceList, (priceList) => priceList.manufacturer, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
   priceLists: PriceList[];
 }
