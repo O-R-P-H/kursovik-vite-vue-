@@ -7,13 +7,14 @@ import { Product } from '../entities/product.entity';
 import { CreatePriceListDto } from "./dto/create-price-list.dto";
 import { UpdatePriceListDto } from "./dto/update-price-list.dto";
 
-
 @Injectable()
 export class PriceListService {
   constructor(
     private dataSource: DataSource,
     @InjectRepository(PriceList)
-    private priceListRepository: Repository<PriceList>
+    private priceListRepository: Repository<PriceList>,
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>
   ) {}
 
   async create(createPriceListDto: CreatePriceListDto): Promise<PriceList> {
@@ -166,14 +167,55 @@ export class PriceListService {
   }
 
   async remove(id: number): Promise<void> {
-    const result = await this.priceListRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Прайс-лист с ID ${id} не найден`);
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. Находим прайс-лист с связанными сущностями
+      const priceList = await queryRunner.manager.findOne(PriceList, {
+        where: { id },
+        relations: ['product', 'manufacturer']
+      });
+
+      if (!priceList) {
+        throw new NotFoundException(`Прайс-лист с ID ${id} не найден`);
+      }
+
+      // 2. Удаляем сам прайс-лист
+      await queryRunner.manager.delete(PriceList, { id });
+
+      // 3. Проверяем, есть ли другие прайс-листы для этого товара
+      const otherPriceLists = await queryRunner.manager.count(PriceList, {
+        where: { product: { id: priceList.product.id } }
+      });
+
+      // 4. Если это был последний прайс-лист для товара, удаляем и товар
+      if (otherPriceLists === 0) {
+        await queryRunner.manager.delete(Product, { id: priceList.product.id });
+
+        // 5. Проверяем, есть ли другие товары у производителя
+        const otherProducts = await queryRunner.manager.count(Product, {
+          where: { manufacturer: { id: priceList.manufacturer.id } }
+        });
+
+        // 6. Если это был последний товар производителя, удаляем и производителя
+        if (otherProducts === 0) {
+          await queryRunner.manager.delete(Manufacturer, { id: priceList.manufacturer.id });
+        }
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
   }
 
   private isValidPrice(price: string): boolean {
-    // Проверка что цена является корректным числом
     const numberValue = parseFloat(price);
     return !isNaN(numberValue) && numberValue >= 0;
   }
