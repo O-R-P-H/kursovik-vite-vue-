@@ -20,13 +20,13 @@ export class Manufacturer {
   directorName: string;
 
   @OneToMany(() => Product, (product) => product.manufacturer, {
-    cascade: true,
+    cascade: ['insert', 'update'],
     onDelete: 'CASCADE'
   })
   products: Product[];
 
   @OneToMany(() => PriceList, (priceList) => priceList.manufacturer, {
-    cascade: true,
+    cascade: ['insert', 'update'],
     onDelete: 'CASCADE'
   })
   priceLists: PriceList[];

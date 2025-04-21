@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Manufacturer } from './manufacturer.entity';
 import { Product } from './product.entity';
 
@@ -7,15 +7,11 @@ export class PriceList {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.priceLists, {
-    onDelete: 'CASCADE'
-  })
+  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.priceLists)
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
 
-  @ManyToOne(() => Product, (product) => product.priceLists, {
-    onDelete: 'CASCADE'
-  })
+  @ManyToOne(() => Product, (product) => product.priceLists)
   @JoinColumn({ name: 'product_id' })
   product: Product;
 

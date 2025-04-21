@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { Manufacturer } from './manufacturer.entity';
 import { PriceList } from './price-list.entity';
 
@@ -29,6 +29,8 @@ export class Product {
     }
   })
   price: string;
+  @OneToMany(() => PriceList, (priceList) => priceList.product)
+  priceLists: PriceList[];
 
   @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.products, {
     onDelete: 'CASCADE'
@@ -36,9 +38,10 @@ export class Product {
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
 
-  @OneToMany(() => PriceList, (priceList) => priceList.product, {
-    cascade: true,
+  @ManyToOne(() => PriceList, (priceList) => priceList.product, {
+    nullable: false,
     onDelete: 'CASCADE'
   })
-  priceLists: PriceList[];
+  @JoinColumn({ name: 'price_list_id' })
+  priceList: PriceList;
 }
