@@ -1,17 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Manufacturer } from '../entities/manufacturer.entity';
 import { CreateManufacturerDto } from './dto/create-manufacturer.dto';
 import { UpdateManufacturerDto } from './dto/update-manufacturer.dto';
-import { PriceList } from "../entities/price-list.entity";
-import { Product } from "../entities/product.entity";
+import { PriceList } from '../entities/price-list.entity';
+import { Product } from '../entities/product.entity';
 
 @Injectable()
 export class ManufacturersService {
   constructor(
     @InjectRepository(Manufacturer)
     private manufacturersRepository: Repository<Manufacturer>,
+    private dataSource: DataSource
   ) {}
 
   async create(
@@ -24,11 +25,23 @@ export class ManufacturersService {
   }
 
   async findAll(): Promise<Manufacturer[]> {
-    return this.manufacturersRepository.find();
+    return this.manufacturersRepository.find({
+      relations: ['products', 'priceLists'],
+      order: { id: 'ASC' }
+    });
   }
 
   async findOne(id: number): Promise<Manufacturer> {
-    return this.manufacturersRepository.findOneBy({ id });
+    const manufacturer = await this.manufacturersRepository.findOne({
+      where: { id },
+      relations: ['products', 'priceLists']
+    });
+
+    if (!manufacturer) {
+      throw new NotFoundException(`Manufacturer with ID ${id} not found`);
+    }
+
+    return manufacturer;
   }
 
   async update(
@@ -40,25 +53,27 @@ export class ManufacturersService {
   }
 
   async remove(id: number): Promise<void> {
-    const queryRunner = this.manufacturersRepository.manager.connection.createQueryRunner();
+    const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // 1. Удаляем связанные priceLists
+      // 1. Удаляем связанные прайс-листы
       await queryRunner.manager.delete(PriceList, { manufacturer: { id } });
 
-      // 2. Удаляем связанные products
+      // 2. Удаляем связанные продукты
       await queryRunner.manager.delete(Product, { manufacturer: { id } });
 
       // 3. Удаляем производителя
       await queryRunner.manager.delete(Manufacturer, { id });
 
       await queryRunner.commitTransaction();
-    } catch (err) {
+    } catch (error) {
       await queryRunner.rollbackTransaction();
-      throw err;
+      throw error;
     } finally {
       await queryRunner.release();
-    }}}
+    }
+  }
+}

@@ -2,19 +2,19 @@ import { IsString, IsNumberString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePriceListDto {
-  @ApiProperty({ example: 'Samsung', description: 'Производитель' })
+  @ApiProperty({ example: 'Samsung', description: 'Manufacturer name' })
   @IsString()
   manufacturer: string;
 
-  @ApiProperty({ example: 'Galaxy S23', description: 'Название товара' })
+  @ApiProperty({ example: 'Galaxy S23', description: 'Product name' })
   @IsString()
   productName: string;
 
-  @ApiProperty({ example: 'Смартфоны', description: 'Группа товаров' })
+  @ApiProperty({ example: 'Smartphones', description: 'Product group' })
   @IsString()
   group: string;
 
-  @ApiProperty({ example: '999.99', description: 'Цена' })
+  @ApiProperty({ example: '999.99', description: 'Product price' })
   @IsNumberString()
   price: string;
 }

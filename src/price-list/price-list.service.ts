@@ -4,23 +4,26 @@ import { Repository, DataSource, EntityManager } from 'typeorm';
 import { PriceList } from '../entities/price-list.entity';
 import { Manufacturer } from '../entities/manufacturer.entity';
 import { Product } from '../entities/product.entity';
-import { CreatePriceListDto } from "./dto/create-price-list.dto";
-import { UpdatePriceListDto } from "./dto/update-price-list.dto";
-
+import { CreatePriceListDto } from './dto/create-price-list.dto';
+import { UpdatePriceListDto } from './dto/update-price-list.dto';
 
 @Injectable()
 export class PriceListService {
   constructor(
     private dataSource: DataSource,
     @InjectRepository(PriceList)
-    private priceListRepository: Repository<PriceList>
+    private priceListRepository: Repository<PriceList>,
+    @InjectRepository(Manufacturer)
+    private manufacturerRepository: Repository<Manufacturer>,
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>
   ) {}
 
   async create(createPriceListDto: CreatePriceListDto): Promise<PriceList> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       // Валидация цены
       if (!this.isValidPrice(createPriceListDto.price)) {
-        throw new BadRequestException('Некорректное значение цены');
+        throw new BadRequestException('Invalid price value');
       }
 
       // Поиск или создание производителя
@@ -51,7 +54,7 @@ export class PriceListService {
           name: createPriceListDto.productName,
           price: createPriceListDto.price,
           group: createPriceListDto.group,
-          number: 'не указан',
+          number: 'PL-' + Date.now().toString(),
           count: 0,
           manufacturer: manufacturer
         });
@@ -78,25 +81,13 @@ export class PriceListService {
     });
   }
 
-  async findOne(id: number): Promise<PriceList> {
-    const priceList = await this.priceListRepository.findOne({
-      where: { id },
-      relations: ['manufacturer', 'product']
-    });
-
-    if (!priceList) {
-      throw new NotFoundException(`Прайс-лист с ID ${id} не найден`);
-    }
-
-    return priceList;
-  }
 
   async update(id: number, updatePriceListDto: UpdatePriceListDto): Promise<PriceList> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const priceList = await this.findOne(id);
       let needsUpdate = false;
 
-      // Обновление производителя при необходимости
+      // Обновление производителя
       if (updatePriceListDto.manufacturer && updatePriceListDto.manufacturer !== priceList.manufacturer.name) {
         let manufacturer = await manager.findOne(Manufacturer, {
           where: { name: updatePriceListDto.manufacturer }
@@ -116,7 +107,7 @@ export class PriceListService {
         needsUpdate = true;
       }
 
-      // Обновление продукта при необходимости
+      // Обновление продукта
       if (updatePriceListDto.productName && updatePriceListDto.productName !== priceList.productName) {
         let product = await manager.findOne(Product, {
           where: {
@@ -130,7 +121,7 @@ export class PriceListService {
             name: updatePriceListDto.productName,
             price: updatePriceListDto.price || priceList.price,
             group: updatePriceListDto.group || priceList.group,
-            number: 'не указан',
+            number: 'PL-' + Date.now().toString(),
             count: 0,
             manufacturer: priceList.manufacturer
           });
@@ -151,7 +142,7 @@ export class PriceListService {
       // Обновление цены
       if (updatePriceListDto.price) {
         if (!this.isValidPrice(updatePriceListDto.price)) {
-          throw new BadRequestException('Некорректное значение цены');
+          throw new BadRequestException('Invalid price value');
         }
         priceList.price = updatePriceListDto.price;
         needsUpdate = true;
@@ -165,15 +156,51 @@ export class PriceListService {
     });
   }
 
+  async findOne(id: number): Promise<PriceList> {
+    const priceList = await this.priceListRepository.findOne({
+      where: { id },
+      relations: ['manufacturer', 'product']
+    });
+
+    if (!priceList) {
+      throw new NotFoundException(`Price list with ID ${id} not found`);
+    }
+
+    return priceList;
+  }
+
   async remove(id: number): Promise<void> {
-    const result = await this.priceListRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Прайс-лист с ID ${id} не найден`);
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const priceList = await this.findOne(id);
+
+      // Отвязываем продукт от прайс-листа
+      if (priceList.product) {
+        // Если нужно сохранить продукт, просто обнуляем связь
+        // priceList.product = null;
+        // await queryRunner.manager.save(priceList.product);
+
+        // Или если нужно удалить продукт:
+        await queryRunner.manager.delete(Product, { id: priceList.product.id });
+      }
+
+      // Удаляем прайс-лист
+      await queryRunner.manager.delete(PriceList, { id });
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
   private isValidPrice(price: string): boolean {
-    // Проверка что цена является корректным числом
     const numberValue = parseFloat(price);
     return !isNaN(numberValue) && numberValue >= 0;
   }

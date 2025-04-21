@@ -1,11 +1,11 @@
-// products.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager, Like } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Product } from '../entities/product.entity';
 import { Manufacturer } from '../entities/manufacturer.entity';
 import { PriceList } from '../entities/price-list.entity';
-import { CreateProductDto, UpdateProductDto } from './dto';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
@@ -21,20 +21,21 @@ export class ProductsService {
 
   async getAll(): Promise<Product[]> {
     return this.productRepository.find({
-      relations: ['manufacturer'],
+      relations: ['manufacturer', 'priceList'],
       order: { id: 'ASC' }
     });
   }
 
-
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['manufacturer', 'priceLists'],
+      relations: ['manufacturer', 'priceList']
     });
+
     if (!product) {
-      throw new NotFoundException(`Продукт с ID ${id} не найден`);
+      throw new NotFoundException(`Product with ID ${id} not found`);
     }
+
     return product;
   }
 
@@ -42,7 +43,7 @@ export class ProductsService {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       // Проверка цены
       if (!this.isValidPrice(createProductDto.price)) {
-        throw new BadRequestException('Некорректное значение цены');
+        throw new BadRequestException('Invalid price value');
       }
 
       // Работа с производителем
@@ -55,7 +56,7 @@ export class ProductsService {
           name: createProductDto.manufacturer,
           address: 'Не указан',
           phone: 'Не указан',
-          directorName: 'Не указан',
+          directorName: 'Не указан'
         });
         manufacturer = await manager.save(manufacturer);
       }
@@ -67,7 +68,7 @@ export class ProductsService {
         group: createProductDto.group,
         number: createProductDto.number,
         price: createProductDto.price,
-        manufacturer: manufacturer,
+        manufacturer: manufacturer
       });
 
       const savedProduct = await manager.save(product);
@@ -78,7 +79,7 @@ export class ProductsService {
         productName: createProductDto.name,
         group: createProductDto.group,
         product: savedProduct,
-        manufacturer: manufacturer,
+        manufacturer: manufacturer
       });
 
       await manager.save(priceList);
@@ -87,13 +88,12 @@ export class ProductsService {
     });
   }
 
-
-
   async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const product = await this.findOne(id);
       let needsUpdate = false;
 
+      // Обновление производителя
       if (updateProductDto.manufacturer && updateProductDto.manufacturer !== product.manufacturer.name) {
         let manufacturer = await manager.findOne(Manufacturer, {
           where: { name: updateProductDto.manufacturer }
@@ -104,7 +104,7 @@ export class ProductsService {
             name: updateProductDto.manufacturer,
             address: 'Не указан',
             phone: 'Не указан',
-            directorName: 'Не указан',
+            directorName: 'Не указан'
           });
           manufacturer = await manager.save(manufacturer);
         }
@@ -112,29 +112,34 @@ export class ProductsService {
         needsUpdate = true;
       }
 
+      // Обновление названия
       if (updateProductDto.name && updateProductDto.name !== product.name) {
         product.name = updateProductDto.name;
         needsUpdate = true;
       }
 
+      // Обновление количества
       if (updateProductDto.count !== undefined && updateProductDto.count !== product.count) {
         product.count = updateProductDto.count;
         needsUpdate = true;
       }
 
+      // Обновление группы
       if (updateProductDto.group && updateProductDto.group !== product.group) {
         product.group = updateProductDto.group;
         needsUpdate = true;
       }
 
+      // Обновление артикула
       if (updateProductDto.number && updateProductDto.number !== product.number) {
         product.number = updateProductDto.number;
         needsUpdate = true;
       }
 
+      // Обновление цены
       if (updateProductDto.price && updateProductDto.price !== product.price) {
         if (!this.isValidPrice(updateProductDto.price)) {
-          throw new BadRequestException('Некорректное значение цены');
+          throw new BadRequestException('Invalid price value');
         }
         product.price = updateProductDto.price;
         needsUpdate = true;
@@ -143,17 +148,16 @@ export class ProductsService {
       if (needsUpdate) {
         const updatedProduct = await manager.save(product);
 
-        if (updateProductDto.name || updateProductDto.group || updateProductDto.price) {
-          const priceList = await manager.findOne(PriceList, {
-            where: { product: { id: product.id } }
-          });
+        // Обновление связанного прайс-листа
+        const priceList = await manager.findOne(PriceList, {
+          where: { product: { id: product.id } }
+        });
 
-          if (priceList) {
-            if (updateProductDto.name) priceList.productName = updateProductDto.name;
-            if (updateProductDto.group) priceList.group = updateProductDto.group;
-            if (updateProductDto.price) priceList.price = updateProductDto.price;
-            await manager.save(priceList);
-          }
+        if (priceList) {
+          if (updateProductDto.name) priceList.productName = updateProductDto.name;
+          if (updateProductDto.group) priceList.group = updateProductDto.group;
+          if (updateProductDto.price) priceList.price = updateProductDto.price;
+          await manager.save(priceList);
         }
 
         return updatedProduct;
@@ -164,9 +168,26 @@ export class ProductsService {
   }
 
   async remove(id: number): Promise<void> {
-    const result = await this.productRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Продукт с ID ${id} не найден`);
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const product = await this.findOne(id);
+
+      // Удаляем связанные прайс-листы
+      await queryRunner.manager.delete(PriceList, { product: { id } });
+
+      // Удаляем продукт
+      await queryRunner.manager.delete(Product, { id });
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
