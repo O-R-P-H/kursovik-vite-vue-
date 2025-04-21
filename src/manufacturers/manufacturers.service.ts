@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Manufacturer } from '../entities/manufacturer.entity';
 import { CreateManufacturerDto } from './dto/create-manufacturer.dto';
 import { UpdateManufacturerDto } from './dto/update-manufacturer.dto';
+import { PriceList } from "../entities/price-list.entity";
+import { Product } from "../entities/product.entity";
 
 @Injectable()
 export class ManufacturersService {
@@ -38,6 +40,25 @@ export class ManufacturersService {
   }
 
   async remove(id: number): Promise<void> {
-    await this.manufacturersRepository.delete(id);
-  }
-}
+    const queryRunner = this.manufacturersRepository.manager.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. Удаляем связанные priceLists
+      await queryRunner.manager.delete(PriceList, { manufacturer: { id } });
+
+      // 2. Удаляем связанные products
+      await queryRunner.manager.delete(Product, { manufacturer: { id } });
+
+      // 3. Удаляем производителя
+      await queryRunner.manager.delete(Manufacturer, { id });
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }}}

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
 import { Manufacturer } from './manufacturer.entity';
 import { Product } from './product.entity';
 
@@ -7,18 +7,27 @@ export class PriceList {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Manufacturer, { eager: true })
+  @ManyToOne(() => Manufacturer, (manufacturer) => manufacturer.priceLists, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'manufacturer_id' })
   manufacturer: Manufacturer;
 
-  @ManyToOne(() => Product, { eager: true })
+  @ManyToOne(() => Product, (product) => product.priceLists, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'product_id' })
   product: Product;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, transformer: {
-      to: (value: string) => value, // сохраняем как string
-      from: (value: string) => value // получаем как string
-    }})
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: string) => value,
+      from: (value: string) => value
+    }
+  })
   price: string;
 
   @Column({ length: 100 })
