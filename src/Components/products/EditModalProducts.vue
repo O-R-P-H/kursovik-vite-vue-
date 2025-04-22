@@ -52,6 +52,7 @@
         <div class="form-group">
           <label>Цена:</label>
           <input
+              disabled
               v-model="formData.price"
               required
           >

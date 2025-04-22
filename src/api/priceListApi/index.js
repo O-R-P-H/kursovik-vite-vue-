@@ -29,20 +29,32 @@ export const PriceListApi = {
 
     async update(id, priceListData) {
         const url = `${config.backendIP}/price-lists/${id}`;
-        const response = await DefaultApiInstance.put(url, {
+
+        // Преобразуем данные в нужный формат
+        const requestData = {
+            manufacturer: priceListData.manufacturer,
             productName: priceListData.productName,
             group: priceListData.group,
-            price: priceListData.price,
-            manufacturer: priceListData.manufacturer // Отправляем как строку
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'accept': 'application/json'
-            }
-        });
-        return response.data;
-    },
+            price: priceListData.price // Оставляем как строку, если API ожидает строку
+        };
 
+        try {
+            const response = await DefaultApiInstance.put(url, requestData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка в PriceListApi.update:', {
+                url,
+                requestData,
+                error: error.response?.data || error.message
+            });
+            throw error;
+        }
+    },
     async delete(id) {
         const url = `${config.backendIP}/price-lists/${id}`;
         try {

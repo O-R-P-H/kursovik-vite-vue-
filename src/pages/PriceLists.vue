@@ -4,30 +4,42 @@ import PriceListItem from "@/Components/PriceList/PriceListItem.vue";
 import AddModalPriceList from "@/Components/PriceList/AddModalPriceList.vue";
 import EditModalPriceList from "@/Components/PriceList/EditModalPriceList.vue";
 import DeleteModalPriceList from "@/Components/PriceList/DeleteModalPriceList.vue";
+import MassUpdateModalPriceList from "@/Components/PriceList/MassUpdateModalPriceList.vue";
 import { PriceListApi } from "@/api/priceListApi";
+import { ManufacturerApi } from "@/api/manufacturerApi";
 
 export default {
   components: {
     PriceListItem,
     DeleteModalPriceList,
     EditModalPriceList,
-    AddModalPriceList
+    AddModalPriceList,
+    MassUpdateModalPriceList
   },
   data() {
     return {
       deleteModalIsOpend: false,
       addModalIsOpend: false,
       editModalIsOpend: false,
+      massUpdateModalIsOpend: false,
       priceLists: [],
+      manufacturers: [],
       searchQuery: '',
-      selectedPriceLists: new Set()
+      selectedPriceLists: new Set(),
+      massUpdateData: {
+        manufacturer: null,
+        price: null
+      },
+      isUpdating: false,
+      updateProgress: 0,
+      totalToUpdate: 0
     }
   },
   computed: {
     priceListToEdit() {
       if (this.selectedPriceLists.size !== 1) return null;
       const priceListId = Array.from(this.selectedPriceLists)[0];
-      return this.priceLists.find(p => p.id === priceListId);
+      return this.priceLists.find(priceList => priceList.id === priceListId);
     },
     filteredPriceLists() {
       const query = this.searchQuery?.toLowerCase() || '';
@@ -53,19 +65,34 @@ export default {
   },
   async created() {
     await this.loadPriceLists();
+    await this.loadManufacturers();
   },
   methods: {
     async loadPriceLists() {
       try {
         this.priceLists = await PriceListApi.getAll();
       } catch (error) {
-        console.error('Error loading price lists:', error);
-        this.priceLists = []; // На случай ошибки устанавливаем пустой массив
+        console.error('Ошибка загрузки прайс-листов:', error);
+        this.priceLists = [];
       }
     },
-    // Остальные методы остаются без изменений
-    routerPushtoHome() {
-      router.push({path: "/"});
+    async loadManufacturers() {
+      try {
+        const response = await ManufacturerApi.getAll();
+        this.manufacturers = response.map(manufacturer => ({
+          ...manufacturer,
+          priceLists: manufacturer.priceLists?.map(priceList => ({
+            ...priceList,
+            manufacturer: manufacturer.id // Добавляем manufacturerId если его нет
+          })) || []
+        }));
+      } catch (error) {
+        console.error('Ошибка загрузки производителей:', error);
+        this.manufacturers = [];
+      }
+    },
+    routerPushToHome() {
+      router.push({ path: "/" });
     },
     openAddModal() {
       this.addModalIsOpend = true;
@@ -93,11 +120,23 @@ export default {
     closeDeleteModal() {
       this.deleteModalIsOpend = false;
     },
+    openMassUpdateModal() {
+      this.massUpdateModalIsOpend = true;
+    },
+    closeMassUpdateModal() {
+      this.massUpdateModalIsOpend = false;
+      this.massUpdateData = {
+        manufacturer: null,
+        price: null
+      };
+      this.isUpdating = false;
+      this.updateProgress = 0;
+    },
     handlePriceListAdded(newPriceList) {
       this.priceLists.unshift(newPriceList);
     },
     handlePriceListUpdated(updatedPriceList) {
-      const index = this.priceLists.findIndex(p => p.id === updatedPriceList.id);
+      const index = this.priceLists.findIndex(priceList => priceList.id === updatedPriceList.id);
       if (index !== -1) {
         this.priceLists.splice(index, 1, updatedPriceList);
       }
@@ -122,6 +161,74 @@ export default {
       } else {
         this.selectedPriceLists.add(priceListId);
       }
+    },
+    async confirmMassUpdate() {
+      if (!this.massUpdateData.manufacturer || !this.massUpdateData.price) {
+        alert('Пожалуйста, выберите производителя и укажите новую цену');
+        return;
+      }
+
+      this.isUpdating = true;
+      this.updateProgress = 0;
+
+      try {
+        // Находим выбранного производителя
+        const selectedManufacturer = this.manufacturers.find(
+            m => m.id === this.massUpdateData.manufacturer
+        );
+
+        if (!selectedManufacturer?.priceLists?.length) {
+          alert('Не найдено прайс-листов для выбранного производителя');
+          this.isUpdating = false;
+          return;
+        }
+
+        this.totalToUpdate = selectedManufacturer.priceLists.length;
+        let successCount = 0;
+
+        // Обновляем каждый прайс-лист производителя
+        for (let i = 0; i < selectedManufacturer.priceLists.length; i++) {
+          const priceList = selectedManufacturer.priceLists[i];
+
+          try {
+            // Формируем данные согласно структуре API
+            const updateData = {
+              manufacturer: selectedManufacturer.name, // Используем имя производителя
+              productName: priceList.productName,
+              group: priceList.group,
+              price: this.massUpdateData.price.toString() // Преобразуем в строку
+            };
+
+            console.log('Отправляемые данные:', updateData); // Для отладки
+
+            await PriceListApi.update(priceList.id, updateData);
+            successCount++;
+          } catch (error) {
+            console.error(`Ошибка при обновлении прайс-листа ${priceList.id}:`, error);
+            if (error.response) {
+              console.error('Детали ошибки:', error.response.data);
+            }
+          } finally {
+            this.updateProgress = ((i + 1) / this.totalToUpdate) * 100;
+          }
+        }
+
+        // Перезагружаем данные
+        await this.loadPriceLists();
+        await this.loadManufacturers();
+        this.closeMassUpdateModal();
+
+        if (successCount > 0) {
+          alert(`Успешно обновлено ${successCount} из ${this.totalToUpdate} прайс-листов`);
+        } else {
+          alert('Не удалось обновить ни один прайс-лист. Проверьте консоль для деталей.');
+        }
+      } catch (error) {
+        console.error('Общая ошибка при массовом обновлении:', error);
+        alert('Произошла ошибка при обновлении');
+      } finally {
+        this.isUpdating = false;
+      }
     }
   }
 }
@@ -145,6 +252,16 @@ export default {
         v-if="addModalIsOpend"
         @close="closeAddModal"
         @price-list-added="handlePriceListAdded"
+    />
+    <MassUpdateModalPriceList
+        v-if="massUpdateModalIsOpend"
+        :manufacturers="manufacturers"
+        :is-updating="isUpdating"
+        :update-progress="updateProgress"
+        @close="closeMassUpdateModal"
+        @confirm="confirmMassUpdate"
+        v-model:manufacturer="massUpdateData.manufacturer"
+        v-model:price="massUpdateData.price"
     />
     <div class="centring container">
       <div class="big_wrapper">
@@ -192,29 +309,36 @@ export default {
                 class="buttons"
                 @click="openAddModal"
             >
-              добавить
+              Добавить
             </button>
             <button
                 style="background-color: #E43131"
                 class="buttons"
                 @click="openDeleteModal"
             >
-              удалить
+              Удалить
             </button>
             <button
                 style="background-color: #199BEC"
                 class="buttons"
                 @click="openEditModal"
             >
-              редактировать
+              Редактировать
+            </button>
+            <button
+                style="background-color: #FFA500"
+                class="buttons"
+                @click="openMassUpdateModal"
+            >
+              Массовое обновление
             </button>
           </div>
           <button
               style="background-color: black !important;"
               class="buttons"
-              @click="routerPushtoHome"
+              @click="routerPushToHome"
           >
-            назад
+            Назад
           </button>
         </div>
       </div>
@@ -222,10 +346,8 @@ export default {
   </div>
 </template>
 
-
-
 <style scoped>
-.centring{
+.centring {
   display: flex;
   justify-content: center;
 }
@@ -250,7 +372,6 @@ export default {
   height: 44px;
   background-color: #D9D9D9;
   border-radius: 87px;
-
 }
 
 .search_box {
@@ -288,33 +409,32 @@ export default {
   overflow-y: scroll;
   scrollbar-track-color: #4E4D4D;
 }
-::-webkit-scrollbar{
+::-webkit-scrollbar {
   background-color: #D9D9D9;
   margin-left: 10px;
   width: 10px;
   border-radius: 30px;
 }
-::-webkit-scrollbar-thumb{
+::-webkit-scrollbar-thumb {
   background-color: #757575;
   border-radius: 30px;
   -webkit-border-radius: 10px;
-
 }
 
 input::placeholder {
   font-family: 'Inter-mf', sans-serif;
   margin-left: 20px;
 }
-.button_wrapper{
+.button_wrapper {
   justify-content: space-between;
   width: 910px;
   display: flex;
   margin-left: 60px;
   margin-top: 28px;
 }
-.btn_subwrap{
+.btn_subwrap {
   display: flex;
-  width: 450px;
+  width: 650px;
   justify-content: space-between;
 }
 .btn_subwrap button {
