@@ -1,18 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource,In } from 'typeorm';
 import { Manufacturer } from '../entities/manufacturer.entity';
 import { CreateManufacturerDto } from './dto/create-manufacturer.dto';
 import { UpdateManufacturerDto } from './dto/update-manufacturer.dto';
-import { PriceList } from '../entities/price-list.entity';
-import { Product } from '../entities/product.entity';
+import { PriceList } from "../entities/price-list.entity";
+import { Product } from "../entities/product.entity";
+
 
 @Injectable()
 export class ManufacturersService {
   constructor(
+    private dataSource: DataSource,
     @InjectRepository(Manufacturer)
     private manufacturersRepository: Repository<Manufacturer>,
-    private dataSource: DataSource
+    @InjectRepository(PriceList)
+    private priceListRepository: Repository<PriceList>,
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>
   ) {}
 
   async create(
@@ -26,22 +31,15 @@ export class ManufacturersService {
 
   async findAll(): Promise<Manufacturer[]> {
     return this.manufacturersRepository.find({
-      relations: ['products', 'priceLists'],
-      order: { id: 'ASC' }
+      relations: ['products', 'priceLists']
     });
   }
 
   async findOne(id: number): Promise<Manufacturer> {
-    const manufacturer = await this.manufacturersRepository.findOne({
+    return this.manufacturersRepository.findOne({
       where: { id },
       relations: ['products', 'priceLists']
     });
-
-    if (!manufacturer) {
-      throw new NotFoundException(`Manufacturer with ID ${id} not found`);
-    }
-
-    return manufacturer;
   }
 
   async update(
@@ -59,19 +57,44 @@ export class ManufacturersService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Удаляем связанные прайс-листы
-      await queryRunner.manager.delete(PriceList, { manufacturer: { id } });
+      // 1. Находим производителя со всеми связями
+      const manufacturer = await queryRunner.manager.findOne(Manufacturer, {
+        where: { id },
+        relations: ['products', 'priceLists']
+      });
 
-      // 2. Удаляем связанные продукты
-      await queryRunner.manager.delete(Product, { manufacturer: { id } });
+      if (!manufacturer) {
+        throw new NotFoundException(`Производитель с ID ${id} не найден`);
+      }
 
-      // 3. Удаляем производителя
+      // 2. Удаляем все связанные прайс-листы
+      if (manufacturer.priceLists && manufacturer.priceLists.length > 0) {
+        await queryRunner.manager.delete(PriceList, {
+          manufacturer: { id }
+        });
+      }
+
+      // 3. Удаляем все связанные продукты
+      if (manufacturer.products && manufacturer.products.length > 0) {
+        // Сначала удаляем прайс-листы этих продуктов
+        const productIds = manufacturer.products.map(p => p.id);
+        await queryRunner.manager.delete(PriceList, {
+          product: { id: In(productIds) }
+        });
+
+        // Затем удаляем сами продукты
+        await queryRunner.manager.delete(Product, {
+          manufacturer: { id }
+        });
+      }
+
+      // 4. Удаляем самого производителя
       await queryRunner.manager.delete(Manufacturer, { id });
 
       await queryRunner.commitTransaction();
-    } catch (error) {
+    } catch (err) {
       await queryRunner.rollbackTransaction();
-      throw error;
+      throw err;
     } finally {
       await queryRunner.release();
     }
