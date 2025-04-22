@@ -9,7 +9,10 @@ import EditModalProducts from "@/Components/products/EditModalProducts.vue";
 export default {
   components: {
     EditModalProducts,
-    DeleteModalProducts, EditModal: EditModalProducts, AddModal: AddModalProducts, DeleteModal: DeleteModalProducts, ProductItem},
+    DeleteModalProducts,
+    AddModal: AddModalProducts,
+    ProductItem
+  },
   data() {
     return {
       deleteModalIsOpend: false,
@@ -24,7 +27,11 @@ export default {
     productToEdit() {
       if (this.selectedProducts.size !== 1) return null;
       const productId = Array.from(this.selectedProducts)[0];
-      return this.products.find(p => p.id === productId);
+      const product = this.products.find(p => p.id === productId);
+      return product ? {
+        ...product,
+        manufacturer: product.manufacturer || { name: 'Не указан', id: null }
+      } : null;
     },
     filteredProducts() {
       return this.products.filter(product =>
@@ -49,29 +56,36 @@ export default {
       }
       this.editModalIsOpend = true;
     },
-
     closeEditModal() {
       this.editModalIsOpend = false;
     },
-
     handleProductUpdated(updatedProduct) {
       const index = this.products.findIndex(p => p.id === updatedProduct.id);
       if (index !== -1) {
-        // Для Vue 3 Composition API
-        this.products[index] = updatedProduct;
-        // Или для реактивности можно создать новый массив
-        this.products = [
-          ...this.products.slice(0, index),
-          updatedProduct,
-          ...this.products.slice(index + 1)
-        ];
+        this.products.splice(index, 1, {
+          ...updatedProduct,
+          manufacturer: {
+            // Сохраняем старый ID если есть, или null
+            id: this.products[index].manufacturer?.id || null,
+            name: updatedProduct.manufacturer
+          }
+        });
       }
       this.selectedProducts.clear();
+      window.location.reload()
     },
     async loadProducts() {
       try {
         const data = await ProductApi.getAll();
-        this.products = data;
+        this.products = data.map(product => ({
+          ...product,
+          manufacturer: {
+            id: product.manufacturer?.id || null,
+            name: typeof product.manufacturer === 'string'
+                ? product.manufacturer
+                : product.manufacturer?.name || 'Не указан'
+          }
+        }));
       } catch (error) {
         console.error('Error loading products:', error);
       }
@@ -79,12 +93,9 @@ export default {
     routerPushtoHome() {
       router.push({path: "/"});
     },
-    handleAddProduct() {
-      router.push({path: "/products/new"});
-    },
     openDeleteModal() {
-      if (this.selectedProducts.size === 0) {
-        alert('Пожалуйста, выберите хотя бы один продукт для удаления');
+      if (this.selectedProducts.size !== 1) {
+        alert('Выберите ровно один товар для списания');
         return;
       }
       this.deleteModalIsOpend = true;
@@ -112,21 +123,14 @@ export default {
     openAddModal() {
       this.addModalIsOpend = true;
     },
-
     closeAddModal() {
       this.addModalIsOpend = false;
     },
-
     handleProductAdded(newProduct) {
-      this.products.unshift(newProduct); // Добавляем новый продукт в начало списка
-    },
-    handleEditProduct() {
-      if (this.selectedProducts.size !== 1) {
-        alert('Please select exactly one product to edit');
-        return;
-      }
-      const productId = Array.from(this.selectedProducts)[0];
-      router.push({path: `/products/edit/${productId}`});
+      this.products.unshift({
+        ...newProduct,
+        manufacturer: newProduct.manufacturer || { name: 'Не указан', id: null }
+      });
     },
     toggleProductSelection(productId) {
       if (this.selectedProducts.has(productId)) {
@@ -144,10 +148,10 @@ export default {
 <template>
   <div>
     <DeleteModalProducts
-        v-if="deleteModalIsOpend"
-        :productsToDelete="productsToDelete"
+        v-if="deleteModalIsOpend && productToEdit"
+        :product-to-edit="productToEdit"
         @close="closeDeleteModal"
-        @confirm="confirmDelete"
+        @product-updated="handleProductUpdated"
     />
     <EditModalProducts
         v-if="editModalIsOpend && productToEdit"

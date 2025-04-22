@@ -1,12 +1,127 @@
 <script>
 import router from "@/router/router.js";
 import PriceListItem from "@/Components/PriceList/PriceListItem.vue";
+import AddModalPriceList from "@/Components/PriceList/AddModalPriceList.vue";
+import EditModalPriceList from "@/Components/PriceList/EditModalPriceList.vue";
+import DeleteModalPriceList from "@/Components/PriceList/DeleteModalPriceList.vue";
+import { PriceListApi } from "@/api/priceListApi";
 
 export default {
-  components: {PriceListItem},
-  methods:{
-    routerPushtoHome(){
-      router.push({path:"/"})
+  components: {
+    PriceListItem,
+    DeleteModalPriceList,
+    EditModalPriceList,
+    AddModalPriceList
+  },
+  data() {
+    return {
+      deleteModalIsOpend: false,
+      addModalIsOpend: false,
+      editModalIsOpend: false,
+      priceLists: [],
+      searchQuery: '',
+      selectedPriceLists: new Set()
+    }
+  },
+  computed: {
+    priceListToEdit() {
+      if (this.selectedPriceLists.size !== 1) return null;
+      const priceListId = Array.from(this.selectedPriceLists)[0];
+      return this.priceLists.find(p => p.id === priceListId);
+    },
+    filteredPriceLists() {
+      const query = this.searchQuery?.toLowerCase() || '';
+      return this.priceLists.filter(priceList => {
+        const manufacturer = (priceList.manufacturer || '').toString().toLowerCase();
+        const productName = (priceList.productName || '').toString().toLowerCase();
+        const group = (priceList.group || '').toString().toLowerCase();
+        const price = (priceList.price || '').toString().toLowerCase();
+
+        return (
+            manufacturer.includes(query) ||
+            productName.includes(query) ||
+            group.includes(query) ||
+            price.includes(query)
+        );
+      });
+    },
+    priceListsToDelete() {
+      return this.priceLists.filter(priceList =>
+          this.selectedPriceLists.has(priceList.id)
+      );
+    }
+  },
+  async created() {
+    await this.loadPriceLists();
+  },
+  methods: {
+    async loadPriceLists() {
+      try {
+        this.priceLists = await PriceListApi.getAll();
+      } catch (error) {
+        console.error('Error loading price lists:', error);
+        this.priceLists = []; // На случай ошибки устанавливаем пустой массив
+      }
+    },
+    // Остальные методы остаются без изменений
+    routerPushtoHome() {
+      router.push({path: "/"});
+    },
+    openAddModal() {
+      this.addModalIsOpend = true;
+    },
+    closeAddModal() {
+      this.addModalIsOpend = false;
+    },
+    openEditModal() {
+      if (this.selectedPriceLists.size !== 1) {
+        alert('Пожалуйста, выберите ровно один прайс-лист для редактирования');
+        return;
+      }
+      this.editModalIsOpend = true;
+    },
+    closeEditModal() {
+      this.editModalIsOpend = false;
+    },
+    openDeleteModal() {
+      if (this.selectedPriceLists.size === 0) {
+        alert('Пожалуйста, выберите хотя бы один прайс-лист для удаления');
+        return;
+      }
+      this.deleteModalIsOpend = true;
+    },
+    closeDeleteModal() {
+      this.deleteModalIsOpend = false;
+    },
+    handlePriceListAdded(newPriceList) {
+      this.priceLists.unshift(newPriceList);
+    },
+    handlePriceListUpdated(updatedPriceList) {
+      const index = this.priceLists.findIndex(p => p.id === updatedPriceList.id);
+      if (index !== -1) {
+        this.priceLists.splice(index, 1, updatedPriceList);
+      }
+      this.selectedPriceLists.clear();
+    },
+    async confirmDelete() {
+      try {
+        const idsToDelete = Array.from(this.selectedPriceLists);
+        this.priceLists = this.priceLists.filter(
+            priceList => !idsToDelete.includes(priceList.id)
+        );
+        this.selectedPriceLists.clear();
+        this.closeDeleteModal();
+        alert('Прайс-листы успешно удалены!');
+      } catch (error) {
+        console.error('Ошибка при удалении:', error);
+      }
+    },
+    togglePriceListSelection(priceListId) {
+      if (this.selectedPriceLists.has(priceListId)) {
+        this.selectedPriceLists.delete(priceListId);
+      } else {
+        this.selectedPriceLists.add(priceListId);
+      }
     }
   }
 }
@@ -14,6 +129,23 @@ export default {
 
 <template>
   <div>
+    <DeleteModalPriceList
+        v-if="deleteModalIsOpend && priceListsToDelete.length"
+        :price-lists-to-delete="priceListsToDelete"
+        @close="closeDeleteModal"
+        @confirm="confirmDelete"
+    />
+    <EditModalPriceList
+        v-if="editModalIsOpend && priceListToEdit"
+        :price-list-to-edit="priceListToEdit"
+        @close="closeEditModal"
+        @price-list-updated="handlePriceListUpdated"
+    />
+    <AddModalPriceList
+        v-if="addModalIsOpend"
+        @close="closeAddModal"
+        @price-list-added="handlePriceListAdded"
+    />
     <div class="centring container">
       <div class="big_wrapper">
         <h1 class="title">Прайс-листы</h1>
@@ -45,7 +177,12 @@ export default {
           </div>
         </div>
         <div class="wrapper">
-          <EnterpriseItem
+          <PriceListItem
+              v-for="priceList in filteredPriceLists"
+              :key="priceList.id"
+              :price-list="priceList"
+              :selected="selectedPriceLists.has(priceList.id)"
+              @select="togglePriceListSelection(priceList.id)"
           />
         </div>
         <div class="button_wrapper">
@@ -84,6 +221,8 @@ export default {
     </div>
   </div>
 </template>
+
+
 
 <style scoped>
 .centring{

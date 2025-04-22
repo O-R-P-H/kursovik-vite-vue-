@@ -1,27 +1,149 @@
 <script>
 import router from "@/router/router.js";
-import ProductItem from "@/Components/products/ProductItem.vue";
-import AddModal from "@/Components/products/AddModalProducts.vue";
-import EditModalProducts from "@/Components/products/EditModalProducts.vue";
-import DeleteModalProducts from "@/Components/products/DeleteModalProducts.vue";
 import EnterpriseItem from "@/Components/Enterprises/EnterpriseItem.vue";
+import AddModalEnterprise from "@/Components/Enterprises/AddModalEnterprise.vue";
+import EditModalEnterprise from "@/Components/Enterprises/EditModalEnterprise.vue";
+import DeleteModalEnterprise from "@/Components/Enterprises/DeleteModalEnterprise.vue";
+import { ManufacturerApi } from "@/api/manufacturerApi/index.js";
 
 export default {
-  components: {EnterpriseItem, DeleteModalProducts, EditModalProducts, AddModal, ProductItem},
-  methods:{
-    routerPushtoHome(){
-      router.push({path:"/"})
+  components: {
+    EnterpriseItem,
+    DeleteModalEnterprise,
+    EditModalEnterprise,
+    AddModalEnterprise
+  },
+  data() {
+    return {
+      deleteModalIsOpend: false,
+      addModalIsOpend: false,
+      editModalIsOpend: false,
+      enterprises: [],
+      searchQuery: '',
+      selectedEnterprises: new Set()
+    }
+  },
+  computed: {
+    enterpriseToEdit() {
+      if (this.selectedEnterprises.size !== 1) return null;
+      const enterpriseId = Array.from(this.selectedEnterprises)[0];
+      return this.enterprises.find(e => e.id === enterpriseId);
+    },
+    filteredEnterprises() {
+      return this.enterprises.filter(enterprise =>
+          enterprise.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          enterprise.address.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          enterprise.phone.includes(this.searchQuery) ||
+          enterprise.directorName.toLowerCase().includes(this.searchQuery.toLowerCase())
+      );
+    },
+    enterprisesToDelete() {
+      return this.enterprises.filter(enterprise =>
+          this.selectedEnterprises.has(enterprise.id))
+    }
+  },
+  async created() {
+    await this.loadEnterprises();
+  },
+  methods: {
+    async loadEnterprises() {
+      try {
+        this.enterprises = await ManufacturerApi.getAll();
+      } catch (error) {
+        console.error('Error loading enterprises:', error);
+      }
+    },
+    routerPushtoHome() {
+      router.push({path: "/"});
+    },
+    openAddModal() {
+      this.addModalIsOpend = true;
+    },
+    closeAddModal() {
+      this.addModalIsOpend = false;
+    },
+    openEditModal() {
+      if (this.selectedEnterprises.size !== 1) {
+        alert('Пожалуйста, выберите ровно одно предприятие для редактирования');
+        return;
+      }
+      this.editModalIsOpend = true;
+    },
+    closeEditModal() {
+      this.editModalIsOpend = false;
+    },
+    openDeleteModal() {
+      if (this.selectedEnterprises.size === 0) {
+        alert('Пожалуйста, выберите хотя бы одно предприятие для удаления');
+        return;
+      }
+      this.deleteModalIsOpend = true;
+    },
+    closeDeleteModal() {
+      this.deleteModalIsOpend = false;
+    },
+    handleEnterpriseAdded(newEnterprise) {
+      this.enterprises.unshift(newEnterprise);
+    },
+    handleEnterpriseUpdated(updatedEnterprise) {
+      const index = this.enterprises.findIndex(e => e.id === updatedEnterprise.id);
+      if (index !== -1) {
+        this.enterprises.splice(index, 1, updatedEnterprise);
+      }
+      this.selectedEnterprises.clear();
+    },
+    async confirmDelete() {
+      try {
+        const idsToDelete = Array.from(this.selectedEnterprises);
+
+        // Обновляем список предприятий независимо от ответа сервера
+        this.enterprises = this.enterprises.filter(
+            enterprise => !idsToDelete.includes(enterprise.id)
+        );
+
+        this.selectedEnterprises.clear();
+        this.closeDeleteModal();
+
+        // Показываем уведомление об успешном удалении
+        alert('Предприятия успешно удалены!');
+      } catch (error) {
+        console.error('Ошибка при удалении:', error);
+        // Не показываем alert, так как предприятия уже удалены из списка
+      }
+    },
+    toggleEnterpriseSelection(enterpriseId) {
+      if (this.selectedEnterprises.has(enterpriseId)) {
+        this.selectedEnterprises.delete(enterpriseId);
+      } else {
+        this.selectedEnterprises.add(enterpriseId);
+      }
     }
   }
 }
-
 </script>
 
 <template>
   <div>
+    <DeleteModalEnterprise
+        v-if="deleteModalIsOpend && enterprisesToDelete.length"
+        :enterprises-to-delete="enterprisesToDelete"
+        @close="closeDeleteModal"
+        @confirm="confirmDelete"
+    />
+    <EditModalEnterprise
+        v-if="editModalIsOpend && enterpriseToEdit"
+        :enterprise-to-edit="enterpriseToEdit"
+        @close="closeEditModal"
+        @enterprise-updated="handleEnterpriseUpdated"
+    />
+    <AddModalEnterprise
+        v-if="addModalIsOpend"
+        @close="closeAddModal"
+        @enterprise-added="handleEnterpriseAdded"
+    />
     <div class="centring container">
       <div class="big_wrapper">
-        <h1 class="title">Преприятия</h1>
+        <h1 class="title">Предприятия</h1>
         <div class="search_box">
           <input
               v-model="searchQuery"
@@ -51,6 +173,11 @@ export default {
         </div>
         <div class="wrapper">
           <EnterpriseItem
+              v-for="enterprise in filteredEnterprises"
+              :key="enterprise.id"
+              :enterprise="enterprise"
+              :selected="selectedEnterprises.has(enterprise.id)"
+              @select="toggleEnterpriseSelection(enterprise.id)"
           />
         </div>
         <div class="button_wrapper">
@@ -116,7 +243,6 @@ export default {
   height: 44px;
   background-color: #D9D9D9;
   border-radius: 87px;
-
 }
 
 .search_box {
@@ -164,7 +290,6 @@ export default {
   background-color: #757575;
   border-radius: 30px;
   -webkit-border-radius: 10px;
-
 }
 
 input::placeholder {

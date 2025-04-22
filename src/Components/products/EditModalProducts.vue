@@ -43,7 +43,7 @@
         <div class="form-group">
           <label>Производитель:</label>
           <input
-              v-model.trim="formData.manufacturer"
+              v-model="manufacturerInput"
               required
               maxlength="100"
           >
@@ -52,14 +52,16 @@
         <div class="form-group">
           <label>Цена:</label>
           <input
-              v-model.number="formData.price"
+              v-model="formData.price"
               required
           >
         </div>
 
         <div class="modal-actions">
           <button type="button" class="cancel-btn" @click="closeModal">Отмена</button>
-          <button type="submit" class="confirm-btn">Сохранить</button>
+          <button type="submit" class="confirm-btn" :disabled="isLoading">
+            {{ isLoading ? 'Сохранение...' : 'Сохранить' }}
+          </button>
         </div>
       </form>
     </div>
@@ -67,7 +69,7 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { ProductApi } from "@/api/productApi/index.js";
 
 export default {
@@ -81,20 +83,44 @@ export default {
           typeof value.count === 'number' &&
           typeof value.group === 'string' &&
           typeof value.number === 'string' &&
-          typeof value.manufacturer === 'string' &&
-          typeof value.price === 'string'
+          typeof value.price === 'string' &&
+          value.manufacturer
       )
     }
   },
   emits: ['close', 'product-updated'],
 
   setup(props, { emit }) {
-    const formData = ref({ ...props.productToEdit });
+    const formData = ref({
+      ...props.productToEdit,
+      count: Number(props.productToEdit.count),
+      price: String(props.productToEdit.price)
+    });
+
+    const manufacturerInput = computed({
+      get() {
+        return typeof formData.value.manufacturer === 'object'
+            ? formData.value.manufacturer.name
+            : formData.value.manufacturer;
+      },
+      set(value) {
+        if (typeof formData.value.manufacturer === 'object') {
+          formData.value.manufacturer.name = value;
+        } else {
+          formData.value.manufacturer = value;
+        }
+      }
+    });
+
     const isLoading = ref(false);
     const errors = ref([]);
 
     watch(() => props.productToEdit, (newVal) => {
-      formData.value = { ...newVal };
+      formData.value = {
+        ...newVal,
+        count: Number(newVal.count),
+        price: String(newVal.price)
+      };
     }, { deep: true });
 
     const validateForm = () => {
@@ -104,7 +130,25 @@ export default {
         errors.value.push('Название должно быть от 1 до 100 символов');
       }
 
-      // ... остальные проверки
+      if (!formData.value.count || formData.value.count < 1) {
+        errors.value.push('Количество должно быть положительным числом');
+      }
+
+      if (!formData.value.group || formData.value.group.length > 50) {
+        errors.value.push('Группа должна быть от 1 до 50 символов');
+      }
+
+      if (!formData.value.number || formData.value.number.length > 50) {
+        errors.value.push('Артикул должен быть от 1 до 50 символов');
+      }
+
+      if (!manufacturerInput.value || manufacturerInput.value.length > 100) {
+        errors.value.push('Производитель должен быть от 1 до 100 символов');
+      }
+
+      if (!formData.value.price || isNaN(parseFloat(formData.value.price))) {
+        errors.value.push('Укажите корректную цену');
+      }
 
       return errors.value.length === 0;
     };
@@ -121,16 +165,16 @@ export default {
 
       isLoading.value = true;
       try {
-        const { id, ...updateData } = formData.value;
-        const updatedProduct = await ProductApi.update(id, updateData);
-
-        if (!updatedProduct?.id) {
-          throw new Error('Неверный ответ сервера');
-        }
+        const updatedProduct = await ProductApi.update(
+            formData.value.id,
+            {
+              ...formData.value,
+              manufacturer: manufacturerInput.value
+            }
+        );
 
         emit('product-updated', updatedProduct);
         closeModal();
-        window.location.reload()
       } catch (error) {
         console.error('Ошибка при обновлении:', error);
         alert(error.response?.data?.message || 'Не удалось обновить продукт');
@@ -141,6 +185,7 @@ export default {
 
     return {
       formData,
+      manufacturerInput,
       isLoading,
       closeModal,
       submitForm

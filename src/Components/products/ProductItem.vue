@@ -42,7 +42,7 @@ export default {
     <div :title="product.count" style="display: flex; justify-content: center; width: 65px" >{{ product.count }}</div>
     <div :title="product.group" style="max-width: 75px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden">{{ product.group }}</div>
     <div :title="product.number">{{ product.number }}</div>
-    <div :title="product.manufacturer" style="max-width: 140px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden">{{ product.manufacturer }}</div>
+    <div :title="product.manufacturer" style="max-width: 140px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden">{{ product.manufacturer.name }}</div>
     <div :title="product.price">{{ product.price }}</div>
   </div>
 </template>

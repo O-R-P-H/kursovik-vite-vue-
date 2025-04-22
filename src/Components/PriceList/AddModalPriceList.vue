@@ -1,31 +1,21 @@
 <template>
   <div class="modal-overlay" @click.self="closeModal">
     <div class="modal-content">
-      <h2>Добавление нового продукта</h2>
+      <h2>Добавление нового прайс-листа</h2>
       <form @submit.prevent="submitForm">
         <div class="form-group">
-          <label>Название:</label>
-          <input v-model="formData.name" required>
+          <label>Производитель:</label>
+          <input v-model="formData.manufacturer" required>
         </div>
 
         <div class="form-group">
-          <label>Количество:</label>
-          <input v-model="formData.count" type="number" required>
+          <label>Название продукта:</label>
+          <input v-model="formData.productName" required>
         </div>
 
         <div class="form-group">
           <label>Группа:</label>
           <input v-model="formData.group" required>
-        </div>
-
-        <div class="form-group">
-          <label>Артикул:</label>
-          <input v-model="formData.number" required>
-        </div>
-
-        <div class="form-group">
-          <label>Производитель:</label>
-          <input v-model="formData.manufacturer" required>
         </div>
 
         <div class="form-group">
@@ -44,7 +34,7 @@
 </template>
 
 <script>
-import { ProductApi } from "@/api/productApi/index.js";
+import { PriceListApi } from "@/api/priceListApi";
 
 export default {
   props: {
@@ -56,11 +46,9 @@ export default {
   data() {
     return {
       formData: {
-        name: '',
-        count: 0,
-        group: '',
-        number: '',
         manufacturer: '',
+        productName: '',
+        group: '',
         price: ''
       },
       priceError: null
@@ -69,11 +57,6 @@ export default {
   methods: {
     validatePrice() {
       const priceValue = this.formData.price;
-
-      if (priceValue.length < 1 || priceValue.length > 20) {
-        this.priceError = 'Цена должна содержать от 1 до 20 символов';
-        return false;
-      }
 
       if (!/^[0-9]+([.,][0-9]{1,2})?$/.test(priceValue)) {
         this.priceError = 'Введите корректное числовое значение';
@@ -89,11 +72,9 @@ export default {
     },
     resetForm() {
       this.formData = {
-        name: '',
-        count: 0,
-        group: '',
-        number: '',
         manufacturer: '',
+        productName: '',
+        group: '',
         price: ''
       };
       this.priceError = null;
@@ -106,30 +87,22 @@ export default {
       try {
         const formattedPrice = this.formData.price.replace(',', '.');
 
-        // Проверьте структуру данных, которую ожидает бекенд
-        const requestData = {
-          name: this.formData.name,
-          count: Number(this.formData.count), // убедимся, что это число
-          group: this.formData.group,
-          number: this.formData.number,
+        const newPriceList = await PriceListApi.create({
           manufacturer: this.formData.manufacturer,
+          productName: this.formData.productName,
+          group: this.formData.group,
           price: formattedPrice
-        };
+        });
 
-        console.log('Отправляемые данные:', requestData); // для отладки
-
-        const newProduct = await ProductApi.create(requestData);
-        console.log('Ответ сервера:', newProduct); // для отладки
-
-        this.$emit('product-added', newProduct);
+        this.$emit('price-list-added', newPriceList);
         this.closeModal();
       } catch (error) {
-        console.error('Ошибка при добавлении продукта:', error.response || error);
-        alert(`Произошла ошибка при добавлении продукта: ${error.message}`);
+        console.error('Ошибка при добавлении прайс-листа:', error);
+        alert(`Ошибка: ${error.response?.data?.message || 'Неизвестная ошибка'}`);
       }
     }
   }
-}
+};
 </script>
 
 <style scoped>
