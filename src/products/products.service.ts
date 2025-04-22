@@ -4,8 +4,7 @@ import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Product } from '../entities/product.entity';
 import { Manufacturer } from '../entities/manufacturer.entity';
 import { PriceList } from '../entities/price-list.entity';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateProductDto, UpdateProductDto } from './dto';
 
 @Injectable()
 export class ProductsService {
@@ -21,7 +20,7 @@ export class ProductsService {
 
   async getAll(): Promise<Product[]> {
     return this.productRepository.find({
-      relations: ['manufacturer', 'priceList'],
+      relations: ['manufacturer', 'priceLists'],
       order: { id: 'ASC' }
     });
   }
@@ -29,13 +28,11 @@ export class ProductsService {
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['manufacturer', 'priceList']
+      relations: ['manufacturer', 'priceLists'],
     });
-
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException(`Продукт с ID ${id} не найден`);
     }
-
     return product;
   }
 
@@ -43,7 +40,7 @@ export class ProductsService {
     return this.dataSource.transaction(async (manager: EntityManager) => {
       // Проверка цены
       if (!this.isValidPrice(createProductDto.price)) {
-        throw new BadRequestException('Invalid price value');
+        throw new BadRequestException('Некорректное значение цены');
       }
 
       // Работа с производителем
@@ -56,7 +53,7 @@ export class ProductsService {
           name: createProductDto.manufacturer,
           address: 'Не указан',
           phone: 'Не указан',
-          directorName: 'Не указан'
+          directorName: 'Не указан',
         });
         manufacturer = await manager.save(manufacturer);
       }
@@ -68,18 +65,18 @@ export class ProductsService {
         group: createProductDto.group,
         number: createProductDto.number,
         price: createProductDto.price,
-        manufacturer: manufacturer
+        manufacturer: manufacturer,
       });
 
       const savedProduct = await manager.save(product);
 
-      // Создание прайс-листа
+      // Создание прайс-листа (теперь это отдельная операция)
       const priceList = manager.create(PriceList, {
         price: createProductDto.price,
         productName: createProductDto.name,
         group: createProductDto.group,
         product: savedProduct,
-        manufacturer: manufacturer
+        manufacturer: manufacturer,
       });
 
       await manager.save(priceList);
@@ -93,7 +90,6 @@ export class ProductsService {
       const product = await this.findOne(id);
       let needsUpdate = false;
 
-      // Обновление производителя
       if (updateProductDto.manufacturer && updateProductDto.manufacturer !== product.manufacturer.name) {
         let manufacturer = await manager.findOne(Manufacturer, {
           where: { name: updateProductDto.manufacturer }
@@ -104,7 +100,7 @@ export class ProductsService {
             name: updateProductDto.manufacturer,
             address: 'Не указан',
             phone: 'Не указан',
-            directorName: 'Не указан'
+            directorName: 'Не указан',
           });
           manufacturer = await manager.save(manufacturer);
         }
@@ -112,34 +108,29 @@ export class ProductsService {
         needsUpdate = true;
       }
 
-      // Обновление названия
       if (updateProductDto.name && updateProductDto.name !== product.name) {
         product.name = updateProductDto.name;
         needsUpdate = true;
       }
 
-      // Обновление количества
       if (updateProductDto.count !== undefined && updateProductDto.count !== product.count) {
         product.count = updateProductDto.count;
         needsUpdate = true;
       }
 
-      // Обновление группы
       if (updateProductDto.group && updateProductDto.group !== product.group) {
         product.group = updateProductDto.group;
         needsUpdate = true;
       }
 
-      // Обновление артикула
       if (updateProductDto.number && updateProductDto.number !== product.number) {
         product.number = updateProductDto.number;
         needsUpdate = true;
       }
 
-      // Обновление цены
       if (updateProductDto.price && updateProductDto.price !== product.price) {
         if (!this.isValidPrice(updateProductDto.price)) {
-          throw new BadRequestException('Invalid price value');
+          throw new BadRequestException('Некорректное значение цены');
         }
         product.price = updateProductDto.price;
         needsUpdate = true;
@@ -148,12 +139,12 @@ export class ProductsService {
       if (needsUpdate) {
         const updatedProduct = await manager.save(product);
 
-        // Обновление связанного прайс-листа
-        const priceList = await manager.findOne(PriceList, {
+        // Обновляем связанные прайс-листы
+        const priceLists = await manager.find(PriceList, {
           where: { product: { id: product.id } }
         });
 
-        if (priceList) {
+        for (const priceList of priceLists) {
           if (updateProductDto.name) priceList.productName = updateProductDto.name;
           if (updateProductDto.group) priceList.group = updateProductDto.group;
           if (updateProductDto.price) priceList.price = updateProductDto.price;
@@ -174,18 +165,36 @@ export class ProductsService {
     await queryRunner.startTransaction();
 
     try {
-      const product = await this.findOne(id);
+      // Находим продукт с его прайс-листами
+      const product = await queryRunner.manager.findOne(Product, {
+        where: { id },
+        relations: ['priceLists', 'manufacturer']
+      });
 
-      // Удаляем связанные прайс-листы
+      if (!product) {
+        throw new NotFoundException(`Продукт с ID ${id} не найден`);
+      }
+
+      // Удаляем все связанные прайс-листы
       await queryRunner.manager.delete(PriceList, { product: { id } });
 
-      // Удаляем продукт
+      // Удаляем сам продукт
       await queryRunner.manager.delete(Product, { id });
 
+      // Проверяем, есть ли другие продукты у производителя
+      const otherProducts = await queryRunner.manager.count(Product, {
+        where: { manufacturer: { id: product.manufacturer.id } }
+      });
+
+      // Если это был последний продукт производителя, удаляем и производителя
+      if (otherProducts === 0) {
+        await queryRunner.manager.delete(Manufacturer, { id: product.manufacturer.id });
+      }
+
       await queryRunner.commitTransaction();
-    } catch (error) {
+    } catch (err) {
       await queryRunner.rollbackTransaction();
-      throw error;
+      throw err;
     } finally {
       await queryRunner.release();
     }
